@@ -1,11 +1,6 @@
 node_modules/
-build/CMakeFiles/
-build/*.dir
-build/*.vcxproj*
-build/*.sln
-build/CMakeCache.txt
-build/cmake_install.cmake
+build/
+*.tar.bz2
+*.zip
+*.7z
 
-# Ensure all compiled executables and DLLs are committed
-!*.exe
-!*.dll
