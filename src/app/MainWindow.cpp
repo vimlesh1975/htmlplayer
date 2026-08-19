@@ -1,0 +1,529 @@
+#include "app/MainWindow.h"
+
+#include "app/BackendFactory.h"
+#include "decklink/DeckLinkDeviceEnumerator.h"
+
+#include <algorithm>
+#include <cwchar>
+#include <cwctype>
+#include <memory>
+
+namespace ceftod {
+namespace {
+
+constexpr wchar_t kWindowClassName[] = L"CeftoDecklinkMainWindow";
+constexpr UINT_PTR kUiTimer = 1;
+constexpr UINT kUiTimerIntervalMs = 16;
+
+constexpr int kUrlEditId = 1001;
+constexpr int kDeckLinkComboId = 1003;
+constexpr int kMirrorCheckId = 1004;
+constexpr int kReconnectCheckId = 1005;
+constexpr int kStartButtonId = 1006;
+constexpr int kStopButtonId = 1007;
+constexpr int kMinimumPreviewWidth = 420;
+constexpr int kMinimumPreviewHeight = 236;
+
+HWND CreateChild(HWND parent, const wchar_t* className, const wchar_t* text, DWORD style, int id) {
+    return CreateWindowExW(
+        0,
+        className,
+        text,
+        WS_CHILD | WS_VISIBLE | style,
+        0,
+        0,
+        0,
+        0,
+        parent,
+        reinterpret_cast<HMENU>(static_cast<INT_PTR>(id)),
+        GetModuleHandleW(nullptr),
+        nullptr);
+}
+
+void SetControlFont(HWND control, HFONT font) {
+    SendMessageW(control, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
+}
+
+std::wstring FormatCounter(const wchar_t* label, std::uint64_t value) {
+    wchar_t buffer[128] = {};
+    std::swprintf(buffer, sizeof(buffer) / sizeof(buffer[0]), L"%s: %llu", label, static_cast<unsigned long long>(value));
+    return buffer;
+}
+
+VideoMode FixedOutputMode() {
+    return {L"1080i50 - 1920 x 1080 @ 25", 1920, 1080, 25, 1, true};
+}
+
+} // namespace
+
+int RunMainWindow(HINSTANCE instance, int showCommand) {
+    MainWindow window(instance);
+    if (!window.Create(showCommand)) {
+        return 1;
+    }
+
+    MSG message = {};
+    while (GetMessageW(&message, nullptr, 0, 0) > 0) {
+        TranslateMessage(&message);
+        DispatchMessageW(&message);
+    }
+
+    return static_cast<int>(message.wParam);
+}
+
+MainWindow::MainWindow(HINSTANCE instance) : instance_(instance) {
+}
+
+MainWindow::~MainWindow() {
+    if (controller_) {
+        controller_->Stop();
+    }
+}
+
+bool MainWindow::Create(int showCommand) {
+    WNDCLASSW windowClass = {};
+    windowClass.lpfnWndProc = MainWindow::WindowProc;
+    windowClass.hInstance = instance_;
+    windowClass.lpszClassName = kWindowClassName;
+    windowClass.hCursor = LoadCursorW(nullptr, IDC_ARROW);
+    windowClass.hbrBackground = nullptr;
+
+    RegisterClassW(&windowClass);
+
+    hwnd_ = CreateWindowExW(
+        0,
+        kWindowClassName,
+        L"CeftoDecklink - HTML to DeckLink Renderer",
+        WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN,
+        CW_USEDEFAULT,
+        CW_USEDEFAULT,
+        1120,
+        720,
+        nullptr,
+        nullptr,
+        instance_,
+        this);
+
+    if (!hwnd_) {
+        return false;
+    }
+
+    ShowWindow(hwnd_, showCommand);
+    UpdateWindow(hwnd_);
+    return true;
+}
+
+LRESULT CALLBACK MainWindow::WindowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam) {
+    MainWindow* window = nullptr;
+
+    if (message == WM_NCCREATE) {
+        auto* createStruct = reinterpret_cast<CREATESTRUCTW*>(lParam);
+        window = static_cast<MainWindow*>(createStruct->lpCreateParams);
+        SetWindowLongPtrW(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(window));
+        window->hwnd_ = hwnd;
+    } else {
+        window = reinterpret_cast<MainWindow*>(GetWindowLongPtrW(hwnd, GWLP_USERDATA));
+    }
+
+    if (window) {
+        return window->HandleMessage(message, wParam, lParam);
+    }
+
+    return DefWindowProcW(hwnd, message, wParam, lParam);
+}
+
+LRESULT MainWindow::HandleMessage(UINT message, WPARAM wParam, LPARAM lParam) {
+    switch (message) {
+    case WM_CREATE:
+        OnCreate();
+        return 0;
+    case WM_SIZE:
+        OnSize();
+        return 0;
+    case WM_COMMAND:
+        OnCommand(wParam);
+        return 0;
+    case WM_TIMER:
+        OnTimer();
+        return 0;
+    case WM_PAINT:
+        OnPaint();
+        return 0;
+    case WM_ERASEBKGND:
+        return 1;
+    case WM_DESTROY:
+        OnDestroy();
+        return 0;
+    default:
+        return DefWindowProcW(hwnd_, message, wParam, lParam);
+    }
+}
+
+void MainWindow::OnCreate() {
+    uiFont_ = reinterpret_cast<HFONT>(GetStockObject(DEFAULT_GUI_FONT));
+
+    urlLabel_ = CreateChild(hwnd_, L"STATIC", L"HTML URL", 0, 0);
+    urlEdit_ = CreateChild(hwnd_, L"EDIT", L"http://localhost:21000/", WS_TABSTOP | WS_BORDER | ES_AUTOHSCROLL, kUrlEditId);
+
+    deckLinkLabel_ = CreateChild(hwnd_, L"STATIC", L"DeckLink Device", 0, 0);
+    deckLinkCombo_ = CreateChild(hwnd_, L"COMBOBOX", L"", WS_TABSTOP | CBS_DROPDOWNLIST | CBS_HASSTRINGS, kDeckLinkComboId);
+    RefreshDeckLinkDevices();
+
+    mirrorCheck_ = CreateChild(hwnd_, L"BUTTON", L"Mirror output", WS_TABSTOP | BS_AUTOCHECKBOX, kMirrorCheckId);
+    reconnectCheck_ = CreateChild(hwnd_, L"BUTTON", L"Auto reconnect", WS_TABSTOP | BS_AUTOCHECKBOX, kReconnectCheckId);
+    SendMessageW(mirrorCheck_, BM_SETCHECK, BST_UNCHECKED, 0);
+    SendMessageW(reconnectCheck_, BM_SETCHECK, BST_CHECKED, 0);
+
+    startButton_ = CreateChild(hwnd_, L"BUTTON", L"Start Output", WS_TABSTOP | BS_PUSHBUTTON, kStartButtonId);
+    stopButton_ = CreateChild(hwnd_, L"BUTTON", L"Stop Output", WS_TABSTOP | BS_PUSHBUTTON, kStopButtonId);
+    EnableWindow(stopButton_, FALSE);
+
+    statusLabel_ = CreateChild(hwnd_, L"STATIC", L"Status: Ready", 0, 0);
+    fpsLabel_ = CreateChild(hwnd_, L"STATIC", L"FPS: 0.0", 0, 0);
+    framesLabel_ = CreateChild(hwnd_, L"STATIC", L"Frames: 0", 0, 0);
+    dropsLabel_ = CreateChild(hwnd_, L"STATIC", L"Dropped: 0", 0, 0);
+    backendLabel_ = CreateChild(hwnd_, L"STATIC", L"", 0, 0);
+
+    HWND controls[] = {
+        urlLabel_, urlEdit_, deckLinkLabel_, deckLinkCombo_, mirrorCheck_, reconnectCheck_, startButton_, stopButton_,
+        statusLabel_, fpsLabel_, framesLabel_, dropsLabel_, backendLabel_
+    };
+    for (HWND control : controls) {
+        SetControlFont(control, uiFont_);
+    }
+
+    controller_ = std::make_unique<RenderController>(CreateFrameSource(), CreateVideoOutput(false));
+    std::wstring backend = L"DeckLink: " + deckLinkStatus_ + L"\r\nSource: " + controller_->SourceName() + L" | Output: " + controller_->OutputName();
+    SetWindowTextW(backendLabel_, backend.c_str());
+
+    SetTimer(hwnd_, kUiTimer, kUiTimerIntervalMs, nullptr);
+}
+
+void MainWindow::OnSize() {
+    RECT client = {};
+    GetClientRect(hwnd_, &client);
+    LayoutControls(client);
+    InvalidateRect(hwnd_, nullptr, FALSE);
+}
+
+void MainWindow::OnCommand(WPARAM wParam) {
+    const int id = LOWORD(wParam);
+    const int notification = HIWORD(wParam);
+
+    if (notification != BN_CLICKED) {
+        return;
+    }
+
+    if (id == kStartButtonId) {
+        StartOutput();
+    } else if (id == kStopButtonId) {
+        StopOutput();
+    }
+}
+
+void MainWindow::OnTimer() {
+    const DWORD now = GetTickCount();
+    if (lastStatusUpdateTick_ == 0 || now - lastStatusUpdateTick_ >= 250) {
+        UpdateStatusLabels();
+        lastStatusUpdateTick_ = now;
+    }
+
+    InvalidateRect(hwnd_, &previewRect_, FALSE);
+}
+
+void MainWindow::OnPaint() {
+    PAINTSTRUCT paint = {};
+    HDC dc = BeginPaint(hwnd_, &paint);
+
+    RECT client = {};
+    GetClientRect(hwnd_, &client);
+
+    RECT paintRect = paint.rcPaint;
+    if (IsRectEmpty(&paintRect)) {
+        paintRect = client;
+    }
+
+    const int bufferWidth = std::max(1, static_cast<int>(paintRect.right - paintRect.left));
+    const int bufferHeight = std::max(1, static_cast<int>(paintRect.bottom - paintRect.top));
+    HDC bufferDc = CreateCompatibleDC(dc);
+    HBITMAP bufferBitmap = bufferDc ? CreateCompatibleBitmap(dc, bufferWidth, bufferHeight) : nullptr;
+
+    if (bufferDc && bufferBitmap) {
+        HGDIOBJ oldBitmap = SelectObject(bufferDc, bufferBitmap);
+        POINT oldOrigin = {};
+        SetViewportOrgEx(bufferDc, -paintRect.left, -paintRect.top, &oldOrigin);
+
+        HBRUSH background = CreateSolidBrush(GetSysColor(COLOR_WINDOW));
+        FillRect(bufferDc, &paintRect, background);
+        DeleteObject(background);
+
+        DrawPreview(bufferDc, client);
+
+        SetViewportOrgEx(bufferDc, oldOrigin.x, oldOrigin.y, nullptr);
+        BitBlt(dc, paintRect.left, paintRect.top, bufferWidth, bufferHeight, bufferDc, 0, 0, SRCCOPY);
+        SelectObject(bufferDc, oldBitmap);
+    } else {
+        DrawPreview(dc, client);
+    }
+
+    if (bufferBitmap) {
+        DeleteObject(bufferBitmap);
+    }
+    if (bufferDc) {
+        DeleteDC(bufferDc);
+    }
+
+    EndPaint(hwnd_, &paint);
+}
+
+void MainWindow::OnDestroy() {
+    KillTimer(hwnd_, kUiTimer);
+    if (controller_) {
+        controller_->Stop();
+    }
+    PostQuitMessage(0);
+}
+
+void MainWindow::StartOutput() {
+    RenderSettings settings;
+    settings.url = GetWindowTextString(urlEdit_);
+    settings.mode = FixedOutputMode();
+    settings.mirrorOutput = SendMessageW(mirrorCheck_, BM_GETCHECK, 0, 0) == BST_CHECKED;
+    settings.autoReconnect = SendMessageW(reconnectCheck_, BM_GETCHECK, 0, 0) == BST_CHECKED;
+    const auto selectedDeckLink = static_cast<int>(SendMessageW(deckLinkCombo_, CB_GETCURSEL, 0, 0));
+    const bool realDeckLinkSelected = selectedDeckLink > 0 && selectedDeckLink <= static_cast<int>(deckLinkDevices_.size());
+    settings.deckLinkDeviceIndex = realDeckLinkSelected ? selectedDeckLink - 1 : -1;
+
+    if (controller_) {
+        controller_->Stop();
+    }
+    controller_ = std::make_unique<RenderController>(CreateFrameSource(), CreateVideoOutput(realDeckLinkSelected));
+    std::wstring backend = L"DeckLink: " + deckLinkStatus_ + L"\r\nSource: " + controller_->SourceName() + L" | Output: " + controller_->OutputName();
+    SetWindowTextW(backendLabel_, backend.c_str());
+
+    std::wstring error;
+    if (!controller_->Start(settings, &error)) {
+        MessageBoxW(hwnd_, error.empty() ? L"Unable to start output." : error.c_str(), L"Start Output Failed", MB_ICONERROR | MB_OK);
+        SetStatus(L"Status: Start failed");
+        EnableWindow(startButton_, TRUE);
+        EnableWindow(stopButton_, FALSE);
+        return;
+    }
+
+    EnableWindow(startButton_, FALSE);
+    EnableWindow(stopButton_, TRUE);
+    SetStatus(L"Status: Output running");
+}
+
+void MainWindow::StopOutput() {
+    controller_->Stop();
+    EnableWindow(startButton_, TRUE);
+    EnableWindow(stopButton_, FALSE);
+    SetStatus(L"Status: Ready");
+    UpdateStatusLabels();
+    InvalidateRect(hwnd_, &previewRect_, FALSE);
+}
+
+void MainWindow::UpdateStatusLabels() {
+    if (!controller_) {
+        return;
+    }
+
+    const auto stats = controller_->GetStats();
+
+    std::wstring status = L"Status: " + stats.status;
+    SetWindowTextW(statusLabel_, status.c_str());
+
+    wchar_t fpsBuffer[64] = {};
+    std::swprintf(fpsBuffer, sizeof(fpsBuffer) / sizeof(fpsBuffer[0]), L"FPS: %.1f", stats.fps);
+    SetWindowTextW(fpsLabel_, fpsBuffer);
+
+    const auto frames = FormatCounter(L"Frames", stats.framesSubmitted);
+    SetWindowTextW(framesLabel_, frames.c_str());
+
+    const auto drops = FormatCounter(L"Dropped", stats.framesDropped);
+    SetWindowTextW(dropsLabel_, drops.c_str());
+}
+
+void MainWindow::RefreshDeckLinkDevices() {
+    SendMessageW(deckLinkCombo_, CB_RESETCONTENT, 0, 0);
+    SendMessageW(deckLinkCombo_, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(L"None (preview only)"));
+
+    const auto result = EnumerateDeckLinkDevices();
+    deckLinkDevices_ = result.devices;
+    deckLinkStatus_ = result.status;
+
+    int defaultSelection = 0;
+    for (const auto& device : deckLinkDevices_) {
+        std::wstring label = !device.displayName.empty() ? device.displayName : device.modelName;
+        if (label.empty()) {
+            label = L"DeckLink device";
+        }
+        SendMessageW(deckLinkCombo_, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(label.c_str()));
+
+        const int selection = static_cast<int>(SendMessageW(deckLinkCombo_, CB_GETCOUNT, 0, 0)) - 1;
+        std::wstring lowerLabel = label;
+        std::transform(lowerLabel.begin(), lowerLabel.end(), lowerLabel.begin(), [](wchar_t c) {
+            return static_cast<wchar_t>(std::towlower(c));
+        });
+        if (defaultSelection == 0 || lowerLabel.find(L"4k") != std::wstring::npos) {
+            defaultSelection = selection;
+        }
+    }
+
+    SendMessageW(deckLinkCombo_, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(L"Mock DeckLink Output"));
+    SendMessageW(deckLinkCombo_, CB_SETCURSEL, defaultSelection, 0);
+}
+
+void MainWindow::LayoutControls(const RECT& clientRect) {
+    const int margin = 18;
+    const int labelHeight = 20;
+    const int rowHeight = 28;
+    const int gap = 10;
+    const int clientWidth = static_cast<int>(clientRect.right - clientRect.left);
+    const int clientHeight = static_cast<int>(clientRect.bottom - clientRect.top);
+    const int panelWidth = std::min(420, std::max(320, clientWidth / 3));
+    int y = margin;
+
+    MoveWindow(urlLabel_, margin, y, panelWidth - (margin * 2), labelHeight, TRUE);
+    y += labelHeight;
+    MoveWindow(urlEdit_, margin, y, panelWidth - (margin * 2), rowHeight, TRUE);
+    y += rowHeight + gap;
+
+    MoveWindow(deckLinkLabel_, margin, y, panelWidth - (margin * 2), labelHeight, TRUE);
+    y += labelHeight;
+    MoveWindow(deckLinkCombo_, margin, y, panelWidth - (margin * 2), 160, TRUE);
+    y += rowHeight + gap;
+
+    MoveWindow(mirrorCheck_, margin, y, panelWidth - (margin * 2), rowHeight, TRUE);
+    y += rowHeight;
+    MoveWindow(reconnectCheck_, margin, y, panelWidth - (margin * 2), rowHeight, TRUE);
+    y += rowHeight + gap;
+
+    const int buttonWidth = (panelWidth - (margin * 2) - gap) / 2;
+    MoveWindow(startButton_, margin, y, buttonWidth, 32, TRUE);
+    MoveWindow(stopButton_, margin + buttonWidth + gap, y, buttonWidth, 32, TRUE);
+    y += 48;
+
+    MoveWindow(statusLabel_, margin, y, panelWidth - (margin * 2), rowHeight, TRUE);
+    y += rowHeight;
+    MoveWindow(fpsLabel_, margin, y, panelWidth - (margin * 2), rowHeight, TRUE);
+    y += rowHeight;
+    MoveWindow(framesLabel_, margin, y, panelWidth - (margin * 2), rowHeight, TRUE);
+    y += rowHeight;
+    MoveWindow(dropsLabel_, margin, y, panelWidth - (margin * 2), rowHeight, TRUE);
+    y += rowHeight + gap;
+    MoveWindow(backendLabel_, margin, y, panelWidth - (margin * 2), 72, TRUE);
+
+    const int previewLeft = panelWidth + margin;
+    const int previewTop = margin;
+    previewRect_.left = previewLeft;
+    previewRect_.top = previewTop;
+    previewRect_.right = std::max(previewLeft + kMinimumPreviewWidth, clientWidth - margin);
+    previewRect_.bottom = std::max(previewTop + kMinimumPreviewHeight + 64, clientHeight - margin);
+}
+
+void MainWindow::DrawPreview(HDC dc, const RECT&) {
+    auto frame = controller_ ? controller_->GetLatestFrame() : nullptr;
+
+    HBRUSH background = CreateSolidBrush(RGB(18, 18, 20));
+    FillRect(dc, &previewRect_, background);
+    DeleteObject(background);
+
+    HPEN borderPen = CreatePen(PS_SOLID, 1, RGB(72, 78, 86));
+    HGDIOBJ oldPen = SelectObject(dc, borderPen);
+    HGDIOBJ oldBrush = SelectObject(dc, GetStockObject(NULL_BRUSH));
+    Rectangle(dc, previewRect_.left, previewRect_.top, previewRect_.right, previewRect_.bottom);
+    SelectObject(dc, oldBrush);
+    SelectObject(dc, oldPen);
+    DeleteObject(borderPen);
+
+    RECT titleRect = previewRect_;
+    titleRect.left += 14;
+    titleRect.top += 12;
+    titleRect.right -= 14;
+    titleRect.bottom = titleRect.top + 28;
+    SetBkMode(dc, TRANSPARENT);
+    SetTextColor(dc, RGB(222, 228, 235));
+    std::wstring title = L"Live Preview";
+    if (frame && frame->width > 0 && frame->height > 0) {
+        wchar_t titleBuffer[96] = {};
+        std::swprintf(titleBuffer, sizeof(titleBuffer) / sizeof(titleBuffer[0]), L"Live Preview - %d x %d", frame->width, frame->height);
+        title = titleBuffer;
+    }
+    DrawTextW(dc, title.c_str(), -1, &titleRect, DT_LEFT | DT_SINGLELINE | DT_VCENTER);
+
+    if (!frame || frame->bgra.empty()) {
+        RECT emptyRect = previewRect_;
+        emptyRect.top += 48;
+        SetTextColor(dc, RGB(156, 164, 174));
+        DrawTextW(dc, L"Preview waiting for frames", -1, &emptyRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+        return;
+    }
+
+    RECT imageBounds = previewRect_;
+    imageBounds.left += 16;
+    imageBounds.top += 48;
+    imageBounds.right -= 16;
+    imageBounds.bottom -= 16;
+
+    const int availableWidth = std::max(1, static_cast<int>(imageBounds.right - imageBounds.left));
+    const int availableHeight = std::max(1, static_cast<int>(imageBounds.bottom - imageBounds.top));
+    const double sourceAspect = static_cast<double>(frame->width) / std::max(1, frame->height);
+    const double targetAspect = static_cast<double>(availableWidth) / availableHeight;
+
+    int drawWidth = availableWidth;
+    int drawHeight = availableHeight;
+    if (targetAspect > sourceAspect) {
+        drawWidth = static_cast<int>(availableHeight * sourceAspect);
+    } else {
+        drawHeight = static_cast<int>(availableWidth / sourceAspect);
+    }
+
+    const int drawLeft = imageBounds.left + (availableWidth - drawWidth) / 2;
+    const int drawTop = imageBounds.top + (availableHeight - drawHeight) / 2;
+
+    BITMAPINFO bitmapInfo = {};
+    bitmapInfo.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    bitmapInfo.bmiHeader.biWidth = frame->width;
+    bitmapInfo.bmiHeader.biHeight = -frame->height;
+    bitmapInfo.bmiHeader.biPlanes = 1;
+    bitmapInfo.bmiHeader.biBitCount = 32;
+    bitmapInfo.bmiHeader.biCompression = BI_RGB;
+
+    const int oldStretchMode = SetStretchBltMode(dc, HALFTONE);
+    SetBrushOrgEx(dc, 0, 0, nullptr);
+    StretchDIBits(
+        dc,
+        drawLeft,
+        drawTop,
+        drawWidth,
+        drawHeight,
+        0,
+        0,
+        frame->width,
+        frame->height,
+        frame->bgra.data(),
+        &bitmapInfo,
+        DIB_RGB_COLORS,
+        SRCCOPY);
+    if (oldStretchMode) {
+        SetStretchBltMode(dc, oldStretchMode);
+    }
+}
+
+std::wstring MainWindow::GetWindowTextString(HWND control) const {
+    const int length = GetWindowTextLengthW(control);
+    std::wstring text(static_cast<std::size_t>(length) + 1, L'\0');
+    if (length > 0) {
+        GetWindowTextW(control, text.data(), length + 1);
+    }
+    text.resize(std::wcslen(text.c_str()));
+    return text;
+}
+
+void MainWindow::SetStatus(const std::wstring& status) {
+    SetWindowTextW(statusLabel_, status.c_str());
+}
+
+} // namespace ceftod

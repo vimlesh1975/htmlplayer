@@ -1,0 +1,559 @@
+/* ==========================================================================
+   BROADCAST OUTPUT STYLESHEET (1920 x 1080 SDI Output Target)
+   ========================================================================== */
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+html, body {
+  width: 1920px;
+  height: 1080px;
+  overflow: hidden;
+  background-color: transparent;
+  font-family: 'Outfit', 'Inter', system-ui, sans-serif;
+  color: #ffffff;
+}
+
+.broadcast-viewport {
+  width: 1920px;
+  height: 1080px;
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: hidden;
+}
+
+.graphics-container {
+  width: 1920px;
+  height: 1080px;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+/* Background Color Mode Overrides (for testing/keying) */
+.transparent-bg { background-color: transparent !important; }
+.green-screen { background-color: #00ff00 !important; }
+.blue-screen { background-color: #0000ff !important; }
+.dark-preview { background-color: #0b0f19 !important; }
+
+/* Action / Title Safe Area Guide */
+.safe-guide {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 9999;
+}
+.safe-guide.hidden { display: none; }
+.action-safe {
+  position: absolute;
+  top: 3.5%;
+  left: 3.5%;
+  width: 93%;
+  height: 93%;
+  border: 2px dashed rgba(255, 215, 0, 0.6);
+}
+.title-safe {
+  position: absolute;
+  top: 5%;
+  left: 5%;
+  width: 90%;
+  height: 90%;
+  border: 2px solid rgba(0, 230, 255, 0.7);
+}
+.action-safe span, .title-safe span {
+  font-size: 12px;
+  font-weight: 700;
+  background: rgba(0,0,0,0.8);
+  padding: 2px 6px;
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  color: #fff;
+}
+.center-cross {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 40px;
+  height: 40px;
+  transform: translate(-50%, -50%);
+}
+.center-cross::before, .center-cross::after {
+  content: '';
+  position: absolute;
+  background: rgba(255, 255, 255, 0.4);
+}
+.center-cross::before { top: 19px; left: 0; width: 40px; height: 2px; }
+.center-cross::after { top: 0; left: 19px; width: 2px; height: 40px; }
+
+/* Layer Base Styling */
+.gfx-layer {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+  will-change: opacity;
+  transition: opacity 0.4s ease-out;
+}
+
+.gfx-layer.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Fabric.js Dynamic Layer (Strict 1920x1080) */
+.fabric-layer {
+  top: 0;
+  left: 0;
+  width: 1920px;
+  height: 1080px;
+}
+
+#output-fabric-canvas {
+  width: 1920px;
+  height: 1080px;
+}
+
+/* ==========================================================================
+   1. LOWER THIRD GRAPHIC
+   ========================================================================== */
+.lower-third-gfx {
+  bottom: 80px;
+  left: 96px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  transform: translate3d(-100px, 0, 0);
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease-out;
+}
+
+.lower-third-gfx.active {
+  transform: translate3d(0, 0, 0);
+}
+
+.lt-badge {
+  background: linear-gradient(135deg, #e63946, #b71c1c);
+  color: #ffffff;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  padding: 8px 24px;
+  border-radius: 4px 4px 0 0;
+  text-transform: uppercase;
+  box-shadow: 0 4px 15px rgba(230, 57, 70, 0.4);
+}
+
+.lt-main {
+  display: flex;
+  background: rgba(15, 23, 42, 0.92);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0 8px 8px 8px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+  min-width: 680px;
+  max-width: 1000px;
+}
+
+.lt-accent {
+  width: 8px;
+  background: linear-gradient(180deg, #38bdf8, #3b82f6);
+}
+
+.lt-content {
+  padding: 20px 32px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.lt-title {
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: #ffffff;
+  line-height: 1.2;
+}
+
+.lt-subtitle {
+  font-size: 20px;
+  font-weight: 500;
+  color: #94a3b8;
+  margin-top: 4px;
+}
+
+/* Color Themes for Lower Third */
+.lt-theme-blue .lt-badge { background: linear-gradient(135deg, #2563eb, #1d4ed8); }
+.lt-theme-blue .lt-accent { background: linear-gradient(180deg, #60a5fa, #2563eb); }
+.lt-theme-gold .lt-badge { background: linear-gradient(135deg, #d97706, #b45309); color: #000; }
+.lt-theme-gold .lt-accent { background: linear-gradient(180deg, #fef08a, #f59e0b); }
+.lt-theme-emerald .lt-badge { background: linear-gradient(135deg, #059669, #047857); }
+.lt-theme-emerald .lt-accent { background: linear-gradient(180deg, #34d399, #10b981); }
+
+/* ==========================================================================
+   2. BREAKING NEWS TICKER GRAPHIC
+   ========================================================================== */
+.ticker-gfx {
+  bottom: 0;
+  left: 0;
+  width: 1920px;
+  height: 64px;
+  background: rgba(15, 23, 42, 0.95);
+  backdrop-filter: blur(10px);
+  border-top: 3px solid #ef4444;
+  display: flex;
+  align-items: center;
+  transform: translate3d(0, 100%, 0);
+  box-shadow: 0 -10px 30px rgba(0,0,0,0.5);
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease-out;
+}
+
+.ticker-gfx.active {
+  transform: translate3d(0, 0, 0);
+}
+
+.ticker-header {
+  height: 100%;
+  background: linear-gradient(135deg, #dc2626, #991b1b);
+  color: #ffffff;
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: 2.5px;
+  padding: 0 32px;
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+  box-shadow: 4px 0 15px rgba(0, 0, 0, 0.5);
+  z-index: 2;
+}
+
+.ticker-wrapper {
+  flex: 1;
+  overflow: hidden;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+
+.ticker-content {
+  display: inline-block;
+  white-space: nowrap;
+  font-size: 24px;
+  font-weight: 600;
+  color: #f1f5f9;
+  letter-spacing: 0.5px;
+  padding-left: 100%;
+  animation: ticker-scroll 25s linear infinite;
+  will-change: transform;
+}
+
+@keyframes ticker-scroll {
+  0% { transform: translate3d(0, 0, 0); }
+  100% { transform: translate3d(-100%, 0, 0); }
+}
+
+/* ==========================================================================
+   3. SCOREBOARD / MATCH BUG GRAPHIC
+   ========================================================================== */
+.scoreboard-gfx {
+  top: 54px;
+  left: 96px;
+  transform: translate3d(0, -100px, 0);
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease-out;
+}
+
+.scoreboard-gfx.active {
+  transform: translate3d(0, 0, 0);
+}
+
+.sb-card {
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+  min-width: 440px;
+}
+
+.sb-header {
+  background: linear-gradient(90deg, #1e293b, #0f172a);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  color: #38bdf8;
+  text-align: center;
+  padding: 6px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.sb-body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+}
+
+.sb-team {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.team-name {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+
+.team-score {
+  font-size: 36px;
+  font-weight: 900;
+  background: #1e293b;
+  color: #38bdf8;
+  padding: 2px 14px;
+  border-radius: 6px;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+.sb-divider {
+  font-size: 28px;
+  font-weight: 800;
+  color: #64748b;
+  margin: 0 12px;
+}
+
+.sb-footer {
+  background: rgba(30, 41, 59, 0.8);
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 24px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #94a3b8;
+}
+
+.sb-timer {
+  color: #f43f5e;
+  font-family: monospace;
+  font-size: 16px;
+}
+
+/* ==========================================================================
+   4. CHANNEL BUG & LIVE CLOCK GRAPHIC
+   ========================================================================== */
+.bugclock-gfx {
+  top: 54px;
+  right: 96px;
+  transform: translate3d(50px, 0, 0);
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease-out;
+}
+
+.bugclock-gfx.active {
+  transform: translate3d(0, 0, 0);
+}
+
+.bug-box {
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 30px;
+  padding: 8px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+}
+
+.bug-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 18px;
+  font-weight: 900;
+  letter-spacing: 1px;
+}
+
+.bug-dot {
+  width: 10px;
+  height: 10px;
+  background: #ef4444;
+  border-radius: 50%;
+  box-shadow: 0 0 10px #ef4444;
+  animation: pulse-red 1.5s infinite;
+}
+
+@keyframes pulse-red {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.3); opacity: 0.5; }
+}
+
+.bug-clock {
+  font-size: 18px;
+  font-weight: 700;
+  color: #38bdf8;
+  font-family: monospace;
+  border-left: 1px solid rgba(255, 255, 255, 0.2);
+  padding-left: 14px;
+}
+
+/* ==========================================================================
+   5. FULL SCREEN INFO CARD GRAPHIC
+   ========================================================================== */
+.infocard-gfx {
+  top: 240px;
+  left: 96px;
+  transform: scale(0.9) translate3d(0, 30px, 0);
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease-out;
+}
+
+.infocard-gfx.active {
+  transform: scale(1) translate3d(0, 0, 0);
+}
+
+.info-card-panel {
+  width: 600px;
+  background: rgba(15, 23, 42, 0.94);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 16px;
+  padding: 36px;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.7);
+}
+
+.info-badge {
+  display: inline-block;
+  background: linear-gradient(135deg, #0ea5e9, #0284c7);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  padding: 4px 14px;
+  border-radius: 20px;
+  margin-bottom: 16px;
+}
+
+.info-name {
+  font-size: 38px;
+  font-weight: 900;
+  letter-spacing: -0.5px;
+  line-height: 1.1;
+}
+
+.info-role {
+  font-size: 20px;
+  font-weight: 600;
+  color: #38bdf8;
+  margin-top: 6px;
+}
+
+.info-card-divider {
+  height: 2px;
+  background: linear-gradient(90deg, #38bdf8, transparent);
+  margin: 24px 0;
+}
+
+.info-card-body p {
+  font-size: 18px;
+  line-height: 1.6;
+  color: #cbd5e1;
+}
+
+/* ==========================================================================
+   6. L-BAR / SIDEBAR GRAPHIC
+   ========================================================================== */
+.lbar-gfx {
+  top: 96px;
+  left: 96px;
+  width: 380px;
+  height: 800px;
+  background: rgba(15, 23, 42, 0.95);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 16px;
+  padding: 32px;
+  transform: translate3d(-120%, 0, 0);
+  box-shadow: 20px 0 50px rgba(0, 0, 0, 0.7);
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease-out;
+}
+
+.lbar-gfx.active {
+  transform: translate3d(0, 0, 0);
+}
+
+.lbar-header h3 {
+  font-size: 28px;
+  font-weight: 900;
+  color: #f43f5e;
+  letter-spacing: 1px;
+}
+
+.lbar-header p {
+  font-size: 16px;
+  color: #94a3b8;
+  margin-top: 4px;
+  margin-bottom: 28px;
+}
+
+.lbar-bullets {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.lbar-bullets li {
+  background: rgba(30, 41, 59, 0.7);
+  border-left: 4px solid #38bdf8;
+  padding: 16px 20px;
+  border-radius: 0 8px 8px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+/* ==========================================================================
+   NATIVE HTML DOM RENDER SURFACE (Pure HTML/CSS Elements)
+   ========================================================================== */
+.html-dom-layer {
+  top: 0;
+  left: 0;
+  width: 1920px;
+  height: 1080px;
+  position: absolute;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.html-dom-element {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  pointer-events: none;
+  will-change: transform, opacity;
+  transition: opacity 0.35s ease-out, transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.html-text-node {
+  display: inline-block;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.html-rect-node {
+  display: block;
+}
+
+.html-img-node {
+  display: block;
+  object-fit: contain;
+}
+

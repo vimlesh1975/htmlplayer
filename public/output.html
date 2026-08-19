@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1920, height=1080, initial-scale=1.0">
+  <title>HTML Graphics Playout - Native 1080p Engine</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=Outfit:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/output.css">
+</head>
+<body class="broadcast-viewport">
+  <div id="graphics-root" class="graphics-container transparent-bg">
+
+    <!-- 100% Native HTML DOM Surface (Dynamic H1, P, DIV, IMG elements) -->
+    <div id="html-dom-surface" class="gfx-layer html-dom-layer active"></div>
+
+    <!-- Safe Area Overlay Guide -->
+    <div id="safe-guide" class="safe-guide hidden">
+      <div class="action-safe"><span>ACTION SAFE 93%</span></div>
+      <div class="title-safe"><span>TITLE SAFE 90%</span></div>
+      <div class="center-cross"></div>
+    </div>
+
+    <!-- HTML Template 1: Lower Third -->
+    <div id="lowerThird-container" class="gfx-layer lower-third-gfx">
+      <div class="lt-badge" id="lt-category">BREAKING NEWS</div>
+      <div class="lt-main">
+        <div class="lt-accent"></div>
+        <div class="lt-content">
+          <h1 class="lt-title" id="lt-title">LIVE BROADCAST GRAPHICS ENGINE</h1>
+          <p class="lt-subtitle" id="lt-subtitle">Pure HTML5/CSS3 Offscreen Frame Renderer for DeckLink SDI</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- HTML Template 2: Breaking News Ticker -->
+    <div id="ticker-container" class="gfx-layer ticker-gfx">
+      <div class="ticker-header" id="ticker-headline">BREAKING NEWS</div>
+      <div class="ticker-wrapper">
+        <div class="ticker-content" id="ticker-text">
+          Pure HTML5 DOM rendering streaming live graphics directly to DeckLink SDI output • 1080i50 Broadcast Standard • Low Latency Frame Buffer
+        </div>
+      </div>
+    </div>
+
+    <!-- HTML Template 3: Scoreboard -->
+    <div id="scoreboard-container" class="gfx-layer scoreboard-gfx">
+      <div class="sb-card">
+        <div class="sb-header">LIVE MATCH</div>
+        <div class="sb-body">
+          <div class="sb-team team-a">
+            <span class="team-name" id="sb-teamA">RED DRAGONS</span>
+            <span class="team-score" id="sb-scoreA">3</span>
+          </div>
+          <div class="sb-divider">:</div>
+          <div class="sb-team team-b">
+            <span class="team-score" id="sb-scoreB">2</span>
+            <span class="team-name" id="sb-teamB">BLUE SHARKS</span>
+          </div>
+        </div>
+        <div class="sb-footer">
+          <span class="sb-period" id="sb-period">2ND HALF</span>
+          <span class="sb-timer" id="sb-timer">68:45</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- HTML Template 4: Channel Bug & Live Clock -->
+    <div id="bugClock-container" class="gfx-layer bugclock-gfx">
+      <div class="bug-box">
+        <div class="bug-logo">
+          <span class="bug-dot"></span>
+          <span class="bug-name" id="bug-channel">CEF TV 4K</span>
+        </div>
+        <div class="bug-clock" id="bug-clock">12:00:00</div>
+      </div>
+    </div>
+
+    <!-- HTML Template 5: Full Screen Info Card -->
+    <div id="infoCard-container" class="gfx-layer infocard-gfx">
+      <div class="info-card-panel">
+        <div class="info-card-header">
+          <div class="info-badge" id="info-title">SPEAKER PROFILE</div>
+          <h2 class="info-name" id="info-name">VIMLESH KUMAR</h2>
+          <p class="info-role" id="info-role">Lead Broadcast Systems Engineer</p>
+        </div>
+        <div class="info-card-divider"></div>
+        <div class="info-card-body">
+          <p id="info-details">Demonstrating CEF Offscreen HTML5 output paired with DeckLink SDI playout pipeline at 1080i50.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- HTML Template 6: L-Bar / Sidebar Graphic -->
+    <div id="lBar-container" class="gfx-layer lbar-gfx">
+      <div class="lbar-panel">
+        <div class="lbar-header">
+          <h3 id="lbar-title">ELECTION SPECIAL</h3>
+          <p id="lbar-subtitle">Live Coverage 2026</p>
+        </div>
+        <ul class="lbar-bullets">
+          <li id="lbar-b1">Real-time HTML Graphics</li>
+          <li id="lbar-b2">DeckLink SDI Integration</li>
+          <li id="lbar-b3">Zero-Latency WebSockets</li>
+        </ul>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="js/output.js"></script>
+</body>
+</html>

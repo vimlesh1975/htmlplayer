@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1920, height=1080, initial-scale=1.0">
+  <title>Studio Control & Fabric Design Studio - 1920x1080 Studio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@500;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/control.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+</head>
+<body class="dashboard-body">
+  <div class="studio-viewport">
+    
+    <!-- Top Navigation Header -->
+    <header class="app-header">
+      <div class="brand">
+        <div class="logo-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1>HTML PLAYER STUDIO</h1>
+          <p>1920x1080 Broadcast Graphic Playout Engine</p>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <a href="/" target="_blank" class="link-btn-header">Open Output Window ↗</a>
+        <div class="connection-status" id="connection-status">
+          <span class="status-dot"></span>
+          <span class="status-text">CONNECTING...</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main 1920x1080 Studio Grid -->
+    <main class="studio-main-grid">
+
+      <!-- Left Column: Design Canvas Workspace -->
+      <section class="left-studio-column">
+        
+        <!-- Master Playout Control Bar -->
+        <div class="card master-bar">
+          <div class="card-header">
+            <h2>MASTER PLAYOUT CONTROL</h2>
+            <span class="hotkey-badge">Space: Take/Stop | Esc: Clear</span>
+          </div>
+          <div class="button-group">
+            <button id="btn-push-design" class="btn btn-take">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+              DISPLAY ON OUTPUT (TAKE)
+            </button>
+            <button id="btn-stop" class="btn btn-stop">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12"></rect></svg>
+              STOP / OUT
+            </button>
+            <button id="btn-clear" class="btn btn-clear">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              CLEAR ALL
+            </button>
+          </div>
+        </div>
+
+        <!-- Fabric.js Canvas Design Studio Card -->
+        <div class="card canvas-studio-card">
+          <div class="card-header">
+            <h2>INTERACTIVE GRAPHIC DESIGN SURFACE (1920 x 1080 Canvas)</h2>
+            <div class="preset-group">
+              <button class="btn-sm" id="preset-lower-third">+ Lower Third</button>
+              <button class="btn-sm" id="preset-news-banner">+ News Ticker</button>
+              <button class="btn-sm" id="preset-badge">+ Speaker Badge</button>
+            </div>
+          </div>
+
+          <!-- Designer Toolbar -->
+          <div class="designer-toolbar">
+            <button id="tool-add-headline" class="tool-btn">🔤 Headline</button>
+            <button id="tool-add-subtitle" class="tool-btn">💬 Subtitle</button>
+            <button id="tool-add-badge" class="tool-btn">🏷️ Badge</button>
+            <button id="tool-add-box" class="tool-btn">🟧 Box Frame</button>
+            <button id="tool-add-rect" class="tool-btn">▭ Accent Bar</button>
+            <label class="tool-btn upload-label">
+              🖼️ Upload Logo
+              <input type="file" id="image-upload" accept="image/*" style="display:none;">
+            </label>
+          </div>
+
+          <!-- Scaled Viewport Container for 1920x1080 Canvas -->
+          <div class="canvas-viewport-wrapper">
+            <canvas id="design-canvas" width="1920" height="1080"></canvas>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- Right Column: Object Inspector & Settings -->
+      <section class="right-studio-column">
+
+        <!-- Object Inspector -->
+        <div class="card inspector-card" id="inspector-panel">
+          <div class="card-header">
+            <h2>OBJECT INSPECTOR</h2>
+            <span id="selected-obj-type" class="active-tag">No Object Selected</span>
+          </div>
+
+          <div class="inspector-grid">
+            <div class="form-group full-width" id="grp-text-content">
+              <label>Text Content</label>
+              <input type="text" id="insp-text" class="form-control" placeholder="Select text object on canvas...">
+            </div>
+
+            <div class="form-group">
+              <label>Font Size</label>
+              <input type="number" id="insp-font-size" class="form-control" value="32" min="10" max="150">
+            </div>
+
+            <div class="form-group">
+              <label>Font Family</label>
+              <select id="insp-font-family" class="form-control">
+                <option value="Outfit">Outfit (Broadcast)</option>
+                <option value="Inter">Inter (Sans)</option>
+                <option value="Impact">Impact (Bold)</option>
+                <option value="Arial">Arial</option>
+                <option value="monospace">Monospace</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label>Text / Fill Color</label>
+              <input type="color" id="insp-color" class="form-control color-picker" value="#ffffff">
+            </div>
+
+            <div class="form-group">
+              <label>Background Fill</label>
+              <input type="color" id="insp-bg-color" class="form-control color-picker" value="#0f172a">
+            </div>
+
+            <div class="form-group full-width">
+              <label>Opacity (%)</label>
+              <input type="range" id="insp-opacity" class="form-control" min="0.1" max="1" step="0.05" value="1">
+            </div>
+
+            <div class="form-group layer-controls full-width">
+              <button id="btn-layer-up" class="btn-sm">Bring Forward ⬆</button>
+              <button id="btn-layer-down" class="btn-sm">Send Backward ⬇</button>
+              <button id="btn-delete-obj" class="btn-sm btn-danger">Delete 🗑️</button>
+              <button id="btn-clear-canvas" class="btn-sm btn-clear-canvas">Clear Surface 🧹</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Backdrop Settings Mode -->
+        <div class="card">
+          <div class="card-header">
+            <h2>SDI OUTPUT BACKDROP MODE</h2>
+          </div>
+          <div class="bg-mode-group">
+            <button class="btn-bg active" data-bg="transparent">Transparent (Key)</button>
+            <button class="btn-bg" data-bg="dark">Dark</button>
+            <button class="btn-bg" data-bg="green">Green Screen</button>
+            <button class="btn-bg" data-bg="blue">Blue Screen</button>
+          </div>
+        </div>
+
+        <!-- REST API Quick Endpoint List -->
+        <div class="card api-card">
+          <div class="card-header">
+            <h2>REST HTTP CONTROL API</h2>
+          </div>
+          <div class="api-docs">
+            <div class="api-item">
+              <span class="method post">POST</span>
+              <code>http://localhost:21000/api/push-design</code>
+            </div>
+            <div class="api-item">
+              <span class="method post">POST</span>
+              <code>http://localhost:21000/api/stop</code>
+            </div>
+            <div class="api-item">
+              <span class="method get">GET</span>
+              <code>http://localhost:21000/api/status</code>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+    </main>
+  </div>
+
+  <script src="js/control.js"></script>
+</body>
+</html>

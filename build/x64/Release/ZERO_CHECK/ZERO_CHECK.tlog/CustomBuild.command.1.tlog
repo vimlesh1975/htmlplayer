@@ -1,0 +1,10 @@
+^C:\USERS\VIMLESH\DOCUMENTS\VIMLESH\HTMLPLAYER\BUILD\CMAKEFILES\DFBA7DB4D4E7BD87ABDC8FD1924D6BB1\GENERATE.STAMP.RULE
+setlocal
+"C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -SC:/Users/vimlesh/Documents/vimlesh/htmlplayer -BC:/Users/vimlesh/Documents/vimlesh/htmlplayer/build --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file C:/Users/vimlesh/Documents/vimlesh/htmlplayer/build/CeftoDecklink.sln
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
