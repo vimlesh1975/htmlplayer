@@ -14,6 +14,10 @@ git add -A
 echo Creating commit...
 git commit -m "Integrate CeftoDecklink with 100% Pure HTML DOM playout and Hardware Key & Fill dual SDI output"
 
+echo Configuring Git HTTP buffer size...
+git config http.postBuffer 1073741824
+git config http.version HTTP/1.1
+
 echo Pushing to origin main...
 git branch -M main
 git push -u origin main

@@ -29,6 +29,10 @@ try {
   console.log('Setting branch main...');
   execSync('git branch -M main', { stdio: 'inherit' });
 
+  console.log('Configuring Git HTTP buffer size...');
+  execSync('git config http.postBuffer 1073741824', { stdio: 'inherit' });
+  execSync('git config http.version HTTP/1.1', { stdio: 'inherit' });
+
   console.log('Pushing to remote origin main...');
   execSync('git push -u origin main', { stdio: 'inherit' });
 
