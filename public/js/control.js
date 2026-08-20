@@ -36,7 +36,6 @@
   const btnPushDesign = document.getElementById('btn-push-design');
   const btnStop = document.getElementById('btn-stop');
   const btnClear = document.getElementById('btn-clear');
-  const bgButtons = document.querySelectorAll('.btn-bg');
 
   // Initialize Fabric Interactive Canvas (Strict 1920 x 1080)
   function initFabricCanvas() {
@@ -574,6 +573,69 @@
       ws.close();
     };
   }
+
+  // FX Trigger Button Listeners
+  const btnFxScorePop = document.getElementById('btn-fx-score-pop');
+  const btnFxSheen = document.getElementById('btn-fx-sheen');
+
+  if (btnFxScorePop) {
+    btnFxScorePop.addEventListener('click', () => {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ action: 'trigger-fx', fxType: 'score-pop' }));
+      }
+    });
+  }
+
+  if (btnFxSheen) {
+    btnFxSheen.addEventListener('click', () => {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ action: 'trigger-fx', fxType: 'sheen-swipe' }));
+      }
+    });
+  }
+
+  // Template Play Button Listeners
+  document.querySelectorAll('.btn-template-play').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const templateName = e.currentTarget.getAttribute('data-template');
+      if (ws && ws.readyState === WebSocket.OPEN && templateName) {
+        ws.send(JSON.stringify({
+          action: 'play',
+          template: templateName
+        }));
+      }
+    });
+  });
+
+  // Score Modifier Buttons
+  let currentScoreA = 3;
+  let currentScoreB = 2;
+
+  function updateLiveScore(changeA, changeB) {
+    currentScoreA = Math.max(0, currentScoreA + changeA);
+    currentScoreB = Math.max(0, currentScoreB + changeB);
+
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        action: 'play',
+        template: 'scoreboard',
+        data: {
+          scoreA: String(currentScoreA),
+          scoreB: String(currentScoreB)
+        }
+      }));
+    }
+  }
+
+  const btnScoreHomePlus = document.getElementById('btn-score-home-plus');
+  const btnScoreHomeMinus = document.getElementById('btn-score-home-minus');
+  const btnScoreAwayPlus = document.getElementById('btn-score-away-plus');
+  const btnScoreAwayMinus = document.getElementById('btn-score-away-minus');
+
+  if (btnScoreHomePlus) btnScoreHomePlus.addEventListener('click', () => updateLiveScore(1, 0));
+  if (btnScoreHomeMinus) btnScoreHomeMinus.addEventListener('click', () => updateLiveScore(-1, 0));
+  if (btnScoreAwayPlus) btnScoreAwayPlus.addEventListener('click', () => updateLiveScore(0, 1));
+  if (btnScoreAwayMinus) btnScoreAwayMinus.addEventListener('click', () => updateLiveScore(0, -1));
 
   // Initialize Canvas & Connection
   initFabricCanvas();

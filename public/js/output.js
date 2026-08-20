@@ -61,7 +61,7 @@
         } else {
           el = document.createElement('p');
         }
-        el.className = 'html-dom-element html-text-node';
+        el.className = 'html-dom-element html-text-node staggered-entry';
         el.textContent = obj.text || '';
         el.style.position = 'absolute';
         el.style.left = left + 'px';
@@ -81,7 +81,7 @@
         el.style.lineHeight = '1.2';
       } else if (obj.type === 'rect') {
         el = document.createElement('div');
-        el.className = 'html-dom-element html-rect-node';
+        el.className = 'html-dom-element html-rect-node staggered-entry';
         el.style.position = 'absolute';
         el.style.left = left + 'px';
         el.style.top = top + 'px';
@@ -98,7 +98,7 @@
         el.style.transform = transform;
       } else if (obj.type === 'image' && obj.src) {
         el = document.createElement('img');
-        el.className = 'html-dom-element html-img-node';
+        el.className = 'html-dom-element html-img-node staggered-entry';
         el.src = obj.src;
         el.style.position = 'absolute';
         el.style.left = left + 'px';
@@ -111,6 +111,7 @@
 
       if (el) {
         el.style.zIndex = idx + 1;
+        el.style.animationDelay = (idx * 0.08) + 's';
         htmlDomSurface.appendChild(el);
       }
     });
@@ -118,6 +119,14 @@
     if (layers.htmlDom) {
       layers.htmlDom.classList.add('active');
     }
+  }
+
+  // Helper to trigger score pop pulse animation
+  function triggerScorePop(element) {
+    if (!element) return;
+    element.classList.remove('score-pop');
+    void element.offsetWidth; // Trigger reflow for keyframe reset
+    element.classList.add('score-pop');
   }
 
   // Real-Time Clock Update Loop
@@ -156,9 +165,25 @@
     if (dataMap.scoreboard) {
       const d = dataMap.scoreboard;
       if (d.teamA !== undefined) document.getElementById('sb-teamA').textContent = d.teamA;
-      if (d.scoreA !== undefined) document.getElementById('sb-scoreA').textContent = d.scoreA;
+      
+      const elScoreA = document.getElementById('sb-scoreA');
+      if (d.scoreA !== undefined) {
+        if (elScoreA.textContent !== String(d.scoreA)) {
+          elScoreA.textContent = d.scoreA;
+          triggerScorePop(elScoreA);
+        }
+      }
+      
       if (d.teamB !== undefined) document.getElementById('sb-teamB').textContent = d.teamB;
-      if (d.scoreB !== undefined) document.getElementById('sb-scoreB').textContent = d.scoreB;
+      
+      const elScoreB = document.getElementById('sb-scoreB');
+      if (d.scoreB !== undefined) {
+        if (elScoreB.textContent !== String(d.scoreB)) {
+          elScoreB.textContent = d.scoreB;
+          triggerScorePop(elScoreB);
+        }
+      }
+      
       if (d.period !== undefined) document.getElementById('sb-period').textContent = d.period;
       if (d.timer !== undefined) document.getElementById('sb-timer').textContent = d.timer;
     }
@@ -186,19 +211,18 @@
     }
   }
 
-  // Set Background Mode
-  function setBackground(bgColor) {
+  // Set Background Mode (Locked to Transparent for SDI Broadcast Keyer)
+  function setBackground() {
     if (!graphicsRoot) return;
-    graphicsRoot.className = 'graphics-container';
-    if (bgColor === 'green') {
-      graphicsRoot.classList.add('green-screen');
-    } else if (bgColor === 'blue') {
-      graphicsRoot.classList.add('blue-screen');
-    } else if (bgColor === 'dark') {
-      graphicsRoot.classList.add('dark-preview');
-    } else {
-      graphicsRoot.classList.add('transparent-bg');
-    }
+    graphicsRoot.className = 'graphics-container transparent-bg';
+  }
+
+  // Helper to re-trigger layer entry animations
+  function activateLayer(layerEl) {
+    if (!layerEl) return;
+    layerEl.classList.remove('active');
+    void layerEl.offsetWidth; // Force reflow to restart CSS keyframes
+    layerEl.classList.add('active');
   }
 
   // Execute State Transition
@@ -229,7 +253,7 @@
       if (activeMode === 'fabric') {
         Object.keys(layers).forEach(key => {
           if (key === 'htmlDom') {
-            if (layers[key]) layers[key].classList.add('active');
+            if (layers[key]) activateLayer(layers[key]);
           } else {
             if (layers[key]) layers[key].classList.remove('active');
           }
@@ -237,7 +261,7 @@
       } else {
         Object.keys(layers).forEach(key => {
           if (key === activeTemplate) {
-            if (layers[key]) layers[key].classList.add('active');
+            if (layers[key]) activateLayer(layers[key]);
           } else {
             if (layers[key]) layers[key].classList.remove('active');
           }
@@ -248,6 +272,21 @@
       Object.keys(layers).forEach(key => {
         if (layers[key]) layers[key].classList.remove('active');
       });
+    }
+  }
+
+  // Handle custom FX animation triggers from control studio
+  function handleFxTrigger(fxType) {
+    if (fxType === 'score-pop') {
+      triggerScorePop(document.getElementById('sb-scoreA'));
+      triggerScorePop(document.getElementById('sb-scoreB'));
+    } else if (fxType === 'sheen-swipe') {
+      const activePanel = document.querySelector('.gfx-layer.active');
+      if (activePanel) {
+        activePanel.classList.remove('active');
+        void activePanel.offsetWidth;
+        activePanel.classList.add('active');
+      }
     }
   }
 
@@ -266,6 +305,10 @@
       try {
         const msg = JSON.parse(event.data);
         console.log('[Broadcast Engine] Received command:', msg.action);
+
+        if (msg.fxType) {
+          handleFxTrigger(msg.fxType);
+        }
 
         if (msg.state) {
           applyState(msg.state);

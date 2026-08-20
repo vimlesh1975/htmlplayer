@@ -152,16 +152,54 @@
           </div>
         </div>
 
-        <!-- Backdrop Settings Mode -->
-        <div class="card">
+        <!-- Broadcast Graphic Templates Playout Card -->
+        <div class="card templates-playout-card">
           <div class="card-header">
-            <h2>SDI OUTPUT BACKDROP MODE</h2>
+            <h2>BROADCAST GRAPHIC TEMPLATES PLAYOUT</h2>
+            <span class="active-tag" style="background:#ef4444; color:#fff;">LIVE PLAYOUT</span>
           </div>
-          <div class="bg-mode-group">
-            <button class="btn-bg active" data-bg="transparent">Transparent (Key)</button>
-            <button class="btn-bg" data-bg="dark">Dark</button>
-            <button class="btn-bg" data-bg="green">Green Screen</button>
-            <button class="btn-bg" data-bg="blue">Blue Screen</button>
+          <p style="font-size:12px; color:#94a3b8; margin-top:4px;">Click any broadcast template below to play its entry animation & live graphics on output:</p>
+          <div class="template-buttons-grid" style="display:grid; grid-template-columns: repeat(2, 1fr); gap:10px; margin-top:12px;">
+            <button class="btn-template-play" data-template="lowerThird" style="background:#1e293b; color:#38bdf8; border:1px solid #3b82f6; padding:12px; border-radius:8px; font-weight:700; cursor:pointer; text-align:left;">
+              📺 Lower Third
+            </button>
+            <button class="btn-template-play" data-template="ticker" style="background:#1e293b; color:#ef4444; border:1px solid #ef4444; padding:12px; border-radius:8px; font-weight:700; cursor:pointer; text-align:left;">
+              📰 News Ticker
+            </button>
+            <button class="btn-template-play" data-template="scoreboard" style="background:#1e293b; color:#38bdf8; border:1px solid #0284c7; padding:12px; border-radius:8px; font-weight:700; cursor:pointer; text-align:left;">
+              ⚽ Match Scoreboard
+            </button>
+            <button class="btn-template-play" data-template="bugClock" style="background:#1e293b; color:#10b981; border:1px solid #10b981; padding:12px; border-radius:8px; font-weight:700; cursor:pointer; text-align:left;">
+              🕒 Channel Bug & Clock
+            </button>
+            <button class="btn-template-play" data-template="infoCard" style="background:#1e293b; color:#a855f7; border:1px solid #8b5cf6; padding:12px; border-radius:8px; font-weight:700; cursor:pointer; text-align:left;">
+              👤 Speaker Profile Card
+            </button>
+            <button class="btn-template-play" data-template="lBar" style="background:#1e293b; color:#f43f5e; border:1px solid #f43f5e; padding:12px; border-radius:8px; font-weight:700; cursor:pointer; text-align:left;">
+              📊 L-Bar Sidebar
+            </button>
+          </div>
+
+          <!-- Quick Live Score Modifier Controls -->
+          <div class="score-quick-controls" style="display:flex; gap:8px; margin-top:14px; align-items:center; background:rgba(30,41,59,0.7); padding:10px 14px; border-radius:8px; flex-wrap:wrap;">
+            <span style="font-size:12px; font-weight:800; color:#94a3b8;">LIVE SCORE:</span>
+            <button id="btn-score-home-plus" style="background:#0284c7; color:#fff; border:none; padding:6px 10px; border-radius:4px; font-weight:800; cursor:pointer;">RED +1</button>
+            <button id="btn-score-home-minus" style="background:#334155; color:#fff; border:none; padding:6px 10px; border-radius:4px; font-weight:800; cursor:pointer;">RED -1</button>
+            <span style="color:#64748b; font-weight:800;">|</span>
+            <button id="btn-score-away-plus" style="background:#0284c7; color:#fff; border:none; padding:6px 10px; border-radius:4px; font-weight:800; cursor:pointer;">BLUE +1</button>
+            <button id="btn-score-away-minus" style="background:#334155; color:#fff; border:none; padding:6px 10px; border-radius:4px; font-weight:800; cursor:pointer;">BLUE -1</button>
+          </div>
+        </div>
+
+        <!-- Broadcast Animation & FX Controller -->
+        <div class="card fx-card">
+          <div class="card-header">
+            <h2>ANIMATION & BROADCAST FX CONTROLLER</h2>
+            <span class="active-tag" style="background:#38bdf8; color:#0f172a;">LIVE FX</span>
+          </div>
+          <div class="fx-button-grid" style="display:flex; gap:10px; margin-top:10px; flex-wrap:wrap;">
+            <button id="btn-fx-score-pop" class="btn-sm" style="flex:1; background:#0284c7; color:#fff; border:none; padding:10px; border-radius:6px; font-weight:700; cursor:pointer;">✨ Trigger Score Pop</button>
+            <button id="btn-fx-sheen" class="btn-sm" style="flex:1; background:#059669; color:#fff; border:none; padding:10px; border-radius:6px; font-weight:700; cursor:pointer;">💫 Re-Trigger Entrance / Sheen</button>
           </div>
         </div>
 

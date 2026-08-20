@@ -314,6 +314,7 @@ const server = http.createServer((req, res) => {
         broadcast({ action: 'push-design', state });
       } else if (pathname === '/api/play') {
         state.status = 'playing';
+        state.activeMode = 'template';
         if (payload.template) state.activeTemplate = payload.template;
         if (payload.data) {
           state.data[state.activeTemplate] = {
@@ -339,6 +340,8 @@ const server = http.createServer((req, res) => {
       } else if (pathname === '/api/clear') {
         state.status = 'cleared';
         broadcast({ action: 'clear', state });
+      } else if (pathname === '/api/trigger-fx') {
+        broadcast({ action: 'trigger-fx', fxType: payload.fxType });
       } else {
         res.writeHead(404, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'Endpoint not found' }));
@@ -401,6 +404,7 @@ server.on('upgrade', (req, socket, head) => {
           broadcast({ action: 'push-design', state });
         } else if (msgObj.action === 'play') {
           state.status = 'playing';
+          state.activeMode = 'template';
           if (msgObj.template) state.activeTemplate = msgObj.template;
           if (msgObj.data) {
             state.data[state.activeTemplate] = {
@@ -415,6 +419,8 @@ server.on('upgrade', (req, socket, head) => {
         } else if (msgObj.action === 'clear') {
           state.status = 'cleared';
           broadcast({ action: 'clear', state });
+        } else if (msgObj.action === 'trigger-fx') {
+          broadcast({ action: 'trigger-fx', fxType: msgObj.fxType });
         }
       } catch (e) {
         console.error('Error parsing incoming WS message:', e);
