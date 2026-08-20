@@ -25,7 +25,203 @@
   let activeTemplate = 'lowerThird';
   let ws = null;
 
-  // Convert Fabric Design Objects into Pure Native HTML DOM Nodes (h1, p, div, img)
+  // Convert Single Fabric Object to High-Fidelity Native HTML DOM Node (1:1 Style Match)
+  function convertFabricObjectToDOMNode(obj, idx) {
+    if (!obj) return null;
+
+    let el = null;
+    const scaleX = obj.scaleX !== undefined ? obj.scaleX : 1;
+    const scaleY = obj.scaleY !== undefined ? obj.scaleY : 1;
+
+    const left = Math.round(obj.left || 0);
+    const top = Math.round(obj.top || 0);
+    const width = Math.round((obj.width || 0) * scaleX);
+    const height = Math.round((obj.height || 0) * scaleY);
+    const opacity = obj.opacity !== undefined ? obj.opacity : 1;
+    const angle = obj.angle || 0;
+    
+    // TransformOrigin matching Fabric origin
+    const originX = obj.originX || 'left';
+    const originY = obj.originY || 'top';
+    const transformOrigin = `${originX} ${originY}`;
+    const transform = `rotate(${angle}deg)`;
+
+    // Common Shadow Handling (text-shadow for text, box-shadow for shapes)
+    let shadowStyle = '';
+    if (obj.shadow) {
+      const s = typeof obj.shadow === 'string' ? { color: obj.shadow } : obj.shadow;
+      const ox = Math.round((s.offsetX || 0) * scaleX);
+      const oy = Math.round((s.offsetY || 0) * scaleY);
+      const blur = Math.round(s.blur || 0);
+      const color = s.color || 'rgba(0, 0, 0, 0.5)';
+      shadowStyle = `${ox}px ${oy}px ${blur}px ${color}`;
+    }
+
+    if (obj.type === 'i-text' || obj.type === 'text' || obj.type === 'textbox') {
+      const baseFontSize = obj.fontSize || 32;
+      const fontSize = Math.round(baseFontSize * scaleY);
+
+      if (fontSize >= 36) {
+        el = document.createElement('h1');
+      } else if (fontSize >= 24) {
+        el = document.createElement('h2');
+      } else {
+        el = document.createElement('p');
+      }
+
+      el.className = 'html-dom-element html-text-node staggered-entry';
+      el.textContent = obj.text || '';
+      el.style.position = 'absolute';
+      el.style.left = left + 'px';
+      el.style.top = top + 'px';
+      if (width > 0) el.style.width = width + 'px';
+      
+      el.style.fontFamily = `'${obj.fontFamily || 'Outfit'}', sans-serif`;
+      el.style.fontSize = fontSize + 'px';
+      el.style.fontWeight = obj.fontWeight || '700';
+      el.style.fontStyle = obj.fontStyle || 'normal';
+      el.style.textAlign = obj.textAlign || 'left';
+      el.style.lineHeight = obj.lineHeight ? obj.lineHeight : '1.16';
+      el.style.color = obj.fill || '#ffffff';
+
+      // Character spacing (Fabric charSpacing is 1/1000 em unit)
+      if (obj.charSpacing) {
+        el.style.letterSpacing = (obj.charSpacing / 1000) + 'em';
+      }
+
+      // Underline / Linethrough
+      if (obj.underline && obj.linethrough) {
+        el.style.textDecoration = 'underline line-through';
+      } else if (obj.underline) {
+        el.style.textDecoration = 'underline';
+      } else if (obj.linethrough) {
+        el.style.textDecoration = 'line-through';
+      }
+
+      // Background color & padding
+      if (obj.backgroundColor) {
+        el.style.backgroundColor = obj.backgroundColor;
+        const pad = Math.round((obj.padding || 4) * scaleY);
+        el.style.padding = pad + 'px';
+        el.style.borderRadius = '4px';
+      }
+
+      // Text stroke
+      if (obj.stroke && obj.strokeWidth) {
+        const strokeW = Math.max(1, Math.round(obj.strokeWidth * scaleY));
+        el.style.webkitTextStroke = `${strokeW}px ${obj.stroke}`;
+      }
+
+      // Text Shadow
+      if (shadowStyle) {
+        el.style.textShadow = shadowStyle;
+      }
+
+      el.style.opacity = opacity;
+      el.style.transformOrigin = transformOrigin;
+      el.style.transform = transform;
+    } else if (obj.type === 'rect') {
+      el = document.createElement('div');
+      el.className = 'html-dom-element html-rect-node staggered-entry';
+      el.style.position = 'absolute';
+      el.style.left = left + 'px';
+      el.style.top = top + 'px';
+      el.style.width = width + 'px';
+      el.style.height = height + 'px';
+      el.style.backgroundColor = obj.fill || 'transparent';
+
+      if (obj.stroke && obj.strokeWidth) {
+        const borderStyle = obj.strokeDashArray ? 'dashed' : 'solid';
+        const borderWidth = Math.max(1, Math.round(obj.strokeWidth * scaleX));
+        el.style.border = `${borderWidth}px ${borderStyle} ${obj.stroke}`;
+      }
+
+      if (obj.rx || obj.ry) {
+        const rx = Math.round((obj.rx || 0) * scaleX);
+        const ry = Math.round((obj.ry || 0) * scaleY);
+        el.style.borderRadius = `${rx}px / ${ry}px`;
+      }
+
+      if (shadowStyle) {
+        el.style.boxShadow = shadowStyle;
+      }
+
+      el.style.opacity = opacity;
+      el.style.transformOrigin = transformOrigin;
+      el.style.transform = transform;
+    } else if (obj.type === 'circle') {
+      el = document.createElement('div');
+      el.className = 'html-dom-element html-rect-node staggered-entry';
+      const diameterX = Math.round((obj.radius * 2 || 0) * scaleX);
+      const diameterY = Math.round((obj.radius * 2 || 0) * scaleY);
+
+      el.style.position = 'absolute';
+      el.style.left = left + 'px';
+      el.style.top = top + 'px';
+      el.style.width = diameterX + 'px';
+      el.style.height = diameterY + 'px';
+      el.style.borderRadius = '50%';
+      el.style.backgroundColor = obj.fill || 'transparent';
+
+      if (obj.stroke && obj.strokeWidth) {
+        const borderWidth = Math.max(1, Math.round(obj.strokeWidth * scaleX));
+        el.style.border = `${borderWidth}px solid ${obj.stroke}`;
+      }
+
+      if (shadowStyle) {
+        el.style.boxShadow = shadowStyle;
+      }
+
+      el.style.opacity = opacity;
+      el.style.transformOrigin = transformOrigin;
+      el.style.transform = transform;
+    } else if (obj.type === 'image' && obj.src) {
+      el = document.createElement('img');
+      el.className = 'html-dom-element html-img-node staggered-entry';
+      el.src = obj.src;
+      el.style.position = 'absolute';
+      el.style.left = left + 'px';
+      el.style.top = top + 'px';
+      el.style.width = width + 'px';
+      el.style.height = height + 'px';
+      el.style.objectFit = 'contain';
+
+      if (shadowStyle) {
+        el.style.boxShadow = shadowStyle;
+      }
+
+      el.style.opacity = opacity;
+      el.style.transformOrigin = transformOrigin;
+      el.style.transform = transform;
+    } else if (obj.type === 'group' && Array.isArray(obj.objects)) {
+      el = document.createElement('div');
+      el.className = 'html-dom-element html-group-node staggered-entry';
+      el.style.position = 'absolute';
+      el.style.left = left + 'px';
+      el.style.top = top + 'px';
+      if (width > 0) el.style.width = width + 'px';
+      if (height > 0) el.style.height = height + 'px';
+      el.style.opacity = opacity;
+      el.style.transformOrigin = transformOrigin;
+      el.style.transform = transform;
+
+      obj.objects.forEach((childObj, childIdx) => {
+        const childNode = convertFabricObjectToDOMNode(childObj, childIdx);
+        if (childNode) {
+          el.appendChild(childNode);
+        }
+      });
+    }
+
+    if (el) {
+      el.style.zIndex = idx + 1;
+      el.style.animationDelay = (idx * 0.06) + 's';
+    }
+
+    return el;
+  }
+
+  // Convert Fabric Design Objects into Pure Native HTML DOM Surface
   function renderHtmlDOMSurface(designPayload) {
     if (!htmlDomSurface) return;
     htmlDomSurface.innerHTML = '';
@@ -42,82 +238,14 @@
     if (!parsed || !parsed.objects || !Array.isArray(parsed.objects)) return;
 
     parsed.objects.forEach((obj, idx) => {
-      let el = null;
-      const left = Math.round(obj.left || 0);
-      const top = Math.round(obj.top || 0);
-      const width = Math.round((obj.width || 0) * (obj.scaleX || 1));
-      const height = Math.round((obj.height || 0) * (obj.scaleY || 1));
-      const opacity = obj.opacity !== undefined ? obj.opacity : 1;
-      const angle = obj.angle || 0;
-      const transform = `rotate(${angle}deg)`;
-
-      if (obj.type === 'i-text' || obj.type === 'text' || obj.type === 'textbox') {
-        const fontSize = obj.fontSize || 32;
-        // Map large text to H1/H2 tags, small text to P/SPAN for clean semantic HTML inspection
-        if (fontSize >= 36) {
-          el = document.createElement('h1');
-        } else if (fontSize >= 24) {
-          el = document.createElement('h2');
-        } else {
-          el = document.createElement('p');
-        }
-        el.className = 'html-dom-element html-text-node staggered-entry';
-        el.textContent = obj.text || '';
-        el.style.position = 'absolute';
-        el.style.left = left + 'px';
-        el.style.top = top + 'px';
-        if (width > 0) el.style.width = width + 'px';
-        el.style.fontFamily = `'${obj.fontFamily || 'Outfit'}', sans-serif`;
-        el.style.fontSize = fontSize + 'px';
-        el.style.fontWeight = obj.fontWeight || '700';
-        el.style.color = obj.fill || '#ffffff';
-        if (obj.backgroundColor) {
-          el.style.backgroundColor = obj.backgroundColor;
-          el.style.padding = (obj.padding || 4) + 'px';
-          el.style.borderRadius = '4px';
-        }
-        el.style.opacity = opacity;
-        el.style.transform = transform;
-        el.style.lineHeight = '1.2';
-      } else if (obj.type === 'rect') {
-        el = document.createElement('div');
-        el.className = 'html-dom-element html-rect-node staggered-entry';
-        el.style.position = 'absolute';
-        el.style.left = left + 'px';
-        el.style.top = top + 'px';
-        el.style.width = width + 'px';
-        el.style.height = height + 'px';
-        el.style.backgroundColor = obj.fill || 'transparent';
-        if (obj.stroke && obj.strokeWidth) {
-          el.style.border = `${obj.strokeWidth}px solid ${obj.stroke}`;
-        }
-        if (obj.rx || obj.ry) {
-          el.style.borderRadius = `${obj.rx || obj.ry}px`;
-        }
-        el.style.opacity = opacity;
-        el.style.transform = transform;
-      } else if (obj.type === 'image' && obj.src) {
-        el = document.createElement('img');
-        el.className = 'html-dom-element html-img-node staggered-entry';
-        el.src = obj.src;
-        el.style.position = 'absolute';
-        el.style.left = left + 'px';
-        el.style.top = top + 'px';
-        el.style.width = width + 'px';
-        el.style.height = height + 'px';
-        el.style.opacity = opacity;
-        el.style.transform = transform;
-      }
-
-      if (el) {
-        el.style.zIndex = idx + 1;
-        el.style.animationDelay = (idx * 0.08) + 's';
-        htmlDomSurface.appendChild(el);
+      const node = convertFabricObjectToDOMNode(obj, idx);
+      if (node) {
+        htmlDomSurface.appendChild(node);
       }
     });
 
     if (layers.htmlDom) {
-      layers.htmlDom.classList.add('active');
+      activateLayer(layers.htmlDom);
     }
   }
 

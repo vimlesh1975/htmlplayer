@@ -760,18 +760,29 @@ html, body {
 }
 
 .html-text-node {
-  display: inline-block;
+  display: block;
+  margin: 0 !important;
+  padding: 0;
   white-space: pre-wrap;
   word-break: break-word;
+  box-sizing: border-box;
+  -webkit-font-smoothing: antialiased;
 }
 
 .html-rect-node {
   display: block;
+  box-sizing: border-box;
 }
 
 .html-img-node {
   display: block;
   object-fit: contain;
+  box-sizing: border-box;
+}
+
+.html-group-node {
+  display: block;
+  box-sizing: border-box;
 }
 
 

@@ -501,20 +501,6 @@
     }
   });
 
-  // Background Selector Buttons
-  bgButtons.forEach(btn => {
-    btn.addEventListener('click', () => {
-      const bg = btn.getAttribute('data-bg');
-      bgButtons.forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      state.backgroundColor = bg;
-
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ action: 'update', backgroundColor: bg }));
-      }
-    });
-  });
-
   // Hotkey Listeners
   window.addEventListener('keydown', (e) => {
     if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) {
