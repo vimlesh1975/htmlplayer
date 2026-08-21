@@ -8,6 +8,13 @@ try {
 
   const repoUrl = 'https://github.com/vimlesh1975/htmlplayer.git';
 
+  try {
+    console.log('Initializing Git LFS...');
+    execSync('git lfs install', { stdio: 'inherit' });
+  } catch (e) {
+    console.log('Note: Ensure Git LFS is installed (https://git-lfs.github.com)');
+  }
+
   execSync('git init', { stdio: 'inherit' });
 
   try {
@@ -16,12 +23,20 @@ try {
     execSync(`git remote set-url origin ${repoUrl}`, { stdio: 'inherit' });
   }
 
-  console.log('Adding files...');
+  console.log('Tracking LFS files...');
+  execSync('git lfs track "*.dll"', { stdio: 'inherit' });
+  execSync('git lfs track "*.exe"', { stdio: 'inherit' });
+  execSync('git lfs track "*.pak"', { stdio: 'inherit' });
+  execSync('git lfs track "*.dat"', { stdio: 'inherit' });
+  execSync('git lfs track "*.lib"', { stdio: 'inherit' });
+
+  console.log('Adding files (including build/Release)...');
+  execSync('git add .gitattributes', { stdio: 'inherit' });
   execSync('git add -A', { stdio: 'inherit' });
 
   console.log('Creating commit...');
   try {
-    execSync('git commit -m "Integrate CeftoDecklink with 100% Pure HTML DOM playout and Hardware Key & Fill dual SDI output"', { stdio: 'inherit' });
+    execSync('git commit -m "Integrate CeftoDecklink with 100% Pure HTML DOM playout and Hardware Key & Fill dual SDI output (including build/Release binaries)"', { stdio: 'inherit' });
   } catch (e) {
     console.log('Commit note:', e.message);
   }
@@ -42,3 +57,4 @@ try {
 } catch (err) {
   console.error('Push script error:', err.message);
 }
+
