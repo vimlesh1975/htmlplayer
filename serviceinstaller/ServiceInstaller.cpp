@@ -11,7 +11,7 @@ namespace {
 
 constexpr wchar_t kServiceName[] = L"CeftoDecklinkService";
 constexpr wchar_t kDisplayName[] = L"CeftoDecklink DeckLink Output Service";
-constexpr wchar_t kServiceExeName[] = L"CeftoDecklinkService.exe";
+constexpr wchar_t kServiceExeName[] = L"CeftoDecklinkServiceApp.exe";
 constexpr wchar_t kDescription[] = L"Outputs the default CeftoDecklink HTML page to the first available DeckLink card.";
 
 std::wstring LastErrorText(DWORD error = GetLastError()) {

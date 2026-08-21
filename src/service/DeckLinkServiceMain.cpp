@@ -479,29 +479,42 @@ void WINAPI ServiceMain(DWORD, LPWSTR*) {
         return;
     }
 
-    g_currentConfig = LoadServiceConfig();
+    try {
+        g_currentConfig = LoadServiceConfig();
 
-    std::wstring startInfo;
-    if (!StartOrRestartController(g_currentConfig, &startInfo)) {
+        std::wstring startInfo;
+        if (!StartOrRestartController(g_currentConfig, &startInfo)) {
+            LogServiceMessage(L"Failed to start playout controller: " + startInfo);
+            SetServiceState(SERVICE_STOPPED, ERROR_SERVICE_SPECIFIC_ERROR);
+            if (g_stopEvent) {
+                CloseHandle(g_stopEvent);
+                g_stopEvent = nullptr;
+            }
+            CoUninitialize();
+            return;
+        }
+
         LogServiceMessage(startInfo);
-        SetServiceState(SERVICE_STOPPED, ERROR_SERVICE_SPECIFIC_ERROR);
-        CloseHandle(g_stopEvent);
-        CoUninitialize();
-        return;
+        SetServiceState(SERVICE_RUNNING);
+
+        WaitForSingleObject(g_stopEvent, INFINITE);
+    } catch (const std::exception& ex) {
+        std::string msg = ex.what();
+        std::wstring wmsg(msg.begin(), msg.end());
+        LogServiceMessage(L"Unhandled std::exception in ServiceMain: " + wmsg);
+    } catch (...) {
+        LogServiceMessage(L"Unhandled unknown exception in ServiceMain.");
     }
-
-    LogServiceMessage(startInfo);
-    SetServiceState(SERVICE_RUNNING);
-
-    WaitForSingleObject(g_stopEvent, INFINITE);
 
     SetServiceState(SERVICE_STOP_PENDING, NO_ERROR, 3000);
     if (g_controller) {
         g_controller->Stop();
         g_controller.reset();
     }
-    CloseHandle(g_stopEvent);
-    g_stopEvent = nullptr;
+    if (g_stopEvent) {
+        CloseHandle(g_stopEvent);
+        g_stopEvent = nullptr;
+    }
 
     LogServiceMessage(L"Service stopped successfully.");
     SetServiceState(SERVICE_STOPPED);

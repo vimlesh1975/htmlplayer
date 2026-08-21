@@ -63,11 +63,11 @@ std::wstring JoinPath(const std::wstring& left, const wchar_t* right) {
 }
 
 std::wstring CeftoLocalDataPath() {
-    PWSTR localAppData = nullptr;
+    PWSTR programData = nullptr;
     std::wstring basePath;
-    if (SUCCEEDED(SHGetKnownFolderPath(FOLDERID_LocalAppData, KF_FLAG_CREATE, nullptr, &localAppData)) && localAppData) {
-        basePath = localAppData;
-        CoTaskMemFree(localAppData);
+    if (SUCCEEDED(SHGetKnownFolderPath(FOLDERID_ProgramData, KF_FLAG_CREATE, nullptr, &programData)) && programData) {
+        basePath = programData;
+        CoTaskMemFree(programData);
     }
 
     if (basePath.empty()) {
@@ -92,6 +92,10 @@ public:
         commandLine->AppendSwitch("disable-gpu-vsync");
         commandLine->AppendSwitch("disable-gpu");
         commandLine->AppendSwitch("disable-gpu-compositing");
+        commandLine->AppendSwitch("disable-d3d11");
+        commandLine->AppendSwitch("disable-software-rasterizer");
+        commandLine->AppendSwitch("allow-insecure-localhost");
+        commandLine->AppendSwitch("disable-dev-shm-usage");
         if (processType.empty()) {
             commandLine->AppendSwitch("disable-background-timer-throttling");
             commandLine->AppendSwitch("disable-renderer-backgrounding");
@@ -139,11 +143,19 @@ bool AcquireCef(std::wstring* error) {
     CefString(&settings.cache_path).FromWString(cachePath);
     CefString(&settings.log_file).FromWString(logPath);
 
-    g_cefApp = new CeftoCefApp();
-    if (!CefInitialize(mainArgs, settings, g_cefApp, nullptr)) {
+    try {
+        g_cefApp = new CeftoCefApp();
+        if (!CefInitialize(mainArgs, settings, g_cefApp, nullptr)) {
+            g_cefApp = nullptr;
+            if (error) {
+                *error = L"CEF initialization failed.";
+            }
+            return false;
+        }
+    } catch (...) {
         g_cefApp = nullptr;
         if (error) {
-            *error = L"CEF initialization failed.";
+            *error = L"CEF initialization threw an unhandled exception.";
         }
         return false;
     }
