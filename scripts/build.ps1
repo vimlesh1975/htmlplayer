@@ -159,7 +159,7 @@ if ($LASTEXITCODE -ne 0) {
     throw "CMake configure failed with exit code $LASTEXITCODE."
 }
 
-Get-Process -Name "CeftoDecklinkService", "CeftoDecklinkServiceApp" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+Get-Process -Name "CeftoDecklinkService" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 Get-Service -Name "CeftoDecklinkService" -ErrorAction SilentlyContinue | Stop-Service -Force -ErrorAction SilentlyContinue
 Start-Sleep -Milliseconds 500
 

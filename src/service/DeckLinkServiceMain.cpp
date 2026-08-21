@@ -38,9 +38,18 @@ constexpr UINT IDM_OPEN_LOG = 302;
 constexpr UINT IDM_RESTART = 303;
 constexpr UINT IDM_EXIT = 304;
 
+constexpr UINT IDM_MODE_HEADER = 250;
+constexpr UINT IDM_MODE_1080I50 = 251;
+constexpr UINT IDM_MODE_1080P50 = 252;
+constexpr UINT IDM_MODE_1080P25 = 253;
+constexpr UINT IDM_MODE_720P50 = 254;
+constexpr UINT IDM_MODE_1080I5994 = 255;
+constexpr UINT IDM_MODE_1080P60 = 256;
+
 struct ServiceConfig {
     std::wstring url = L"http://localhost:21000/";
-    int deckLinkDeviceIndex = 0;
+    int deckLinkDeviceIndex = 4;
+    std::wstring videoMode = L"1080i50";
     bool useMockOutput = false;
 };
 
@@ -54,8 +63,25 @@ NOTIFYICONDATAW g_nid = {};
 ServiceConfig g_currentConfig;
 std::unique_ptr<ceftod::RenderController> g_controller;
 
-VideoMode Default1080pMode() {
-    return {L"1080p50 - 1920 x 1080 @ 50", 1920, 1080, 50, 1, false};
+VideoMode DefaultVideoMode(const std::wstring& modeStr = L"1080i50") {
+    if (modeStr == L"1080p50") {
+        return {L"1080p50 - 1920 x 1080 @ 50", 1920, 1080, 50, 1, false};
+    }
+    if (modeStr == L"1080p25") {
+        return {L"1080p25 - 1920 x 1080 @ 25", 1920, 1080, 25, 1, false};
+    }
+    if (modeStr == L"720p50") {
+        return {L"720p50 - 1280 x 720 @ 50", 1280, 720, 50, 1, false};
+    }
+    if (modeStr == L"1080i5994" || modeStr == L"1080i59.94") {
+        return {L"1080i5994 - 1920 x 1080 @ 29.97", 1920, 1080, 30000, 1001, true};
+    }
+    if (modeStr == L"1080p60") {
+        return {L"1080p60 - 1920 x 1080 @ 60", 1920, 1080, 60, 1, false};
+    }
+
+    // Default to 1080i50 (Broadcast Standard - matching CeftoDecklink.exe)
+    return {L"1080i50 - 1920 x 1080 @ 25", 1920, 1080, 25, 1, true};
 }
 
 std::filesystem::path GetExePath() {
@@ -133,6 +159,19 @@ ServiceConfig LoadServiceConfig() {
                     } catch (...) {}
                 }
             }
+            if (line.find("\"videoMode\"") != std::string::npos) {
+                auto start = line.find(':', line.find("\"videoMode\""));
+                if (start != std::string::npos) {
+                    auto q1 = line.find('"', start);
+                    auto q2 = line.find('"', q1 + 1);
+                    if (q1 != std::string::npos && q2 != std::string::npos) {
+                        std::string modeStr = line.substr(q1 + 1, q2 - q1 - 1);
+                        if (!modeStr.empty()) {
+                            config.videoMode = std::wstring(modeStr.begin(), modeStr.end());
+                        }
+                    }
+                }
+            }
             if (line.find("\"useMockOutput\"") != std::string::npos) {
                 if (line.find("true") != std::string::npos) {
                     config.useMockOutput = true;
@@ -145,7 +184,8 @@ ServiceConfig LoadServiceConfig() {
         if (outFile.is_open()) {
             outFile << L"{\n";
             outFile << L"  \"url\": \"http://localhost:21000/\",\n";
-            outFile << L"  \"deckLinkDeviceIndex\": 0,\n";
+            outFile << L"  \"deckLinkDeviceIndex\": 4,\n";
+            outFile << L"  \"videoMode\": \"1080i50\",\n";
             outFile << L"  \"useMockOutput\": false\n";
             outFile << L"}\n";
         }
@@ -160,6 +200,7 @@ void SaveServiceConfig(const ServiceConfig& config) {
         outFile << L"{\n";
         outFile << L"  \"url\": \"" << config.url << L"\",\n";
         outFile << L"  \"deckLinkDeviceIndex\": " << config.deckLinkDeviceIndex << L",\n";
+        outFile << L"  \"videoMode\": \"" << config.videoMode << L"\",\n";
         outFile << L"  \"useMockOutput\": " << (config.useMockOutput ? L"true" : L"false") << L"\n";
         outFile << L"}\n";
     }
@@ -193,7 +234,7 @@ bool StartOrRestartController(const ServiceConfig& config, std::wstring* outInfo
 
     ceftod::RenderSettings settings;
     settings.url = config.url;
-    settings.mode = Default1080pMode();
+    settings.mode = DefaultVideoMode(config.videoMode);
     settings.deckLinkDeviceIndex = config.deckLinkDeviceIndex;
     settings.mirrorOutput = false;
     settings.autoReconnect = true;

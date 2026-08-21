@@ -306,21 +306,36 @@ public:
         }
 
         const _BMDDisplayMode requestedMode = DisplayModeFor(mode);
-        _BMDDisplayMode candidateModes[] = {
+        std::vector<_BMDDisplayMode> candidateModes = {
             requestedMode,
             bmdModeHD1080i50,
             bmdModeHD1080p25,
+            bmdModeHD1080p50,
             bmdModeHD720p50
         };
 
-        // Prefer pixel formats with Alpha channel (BGRA / ARGB) for Hardware Key & Fill playout
+        // Query device for additional supported display modes via IDeckLinkDisplayModeIterator
+        Microsoft::WRL::ComPtr<IDeckLinkDisplayModeIterator> displayModeIterator;
+        if (SUCCEEDED(output_->GetDisplayModeIterator(&displayModeIterator)) && displayModeIterator) {
+            Microsoft::WRL::ComPtr<IDeckLinkDisplayMode> enumDisplayMode;
+            while (displayModeIterator->Next(&enumDisplayMode) == S_OK && enumDisplayMode) {
+                _BMDDisplayMode modeId = enumDisplayMode->GetDisplayMode();
+                if (std::find(candidateModes.begin(), candidateModes.end(), modeId) == candidateModes.end()) {
+                    candidateModes.push_back(modeId);
+                }
+            }
+        }
+
+        // Prefer pixel formats with Alpha channel (BGRA / ARGB) for Hardware Key & Fill playout, fallback to YUV
         _BMDPixelFormat candidateFormats[] = {
             bmdFormat8BitBGRA,
             bmdFormat8BitARGB,
             bmdFormat8BitYUV
         };
 
-        bool formatSupported = false;
+        bool enableSuccess = false;
+        HRESULT lastEnableHr = S_OK;
+
         for (auto fmt : candidateFormats) {
             for (auto m : candidateModes) {
                 long supported = FALSE;
@@ -334,27 +349,40 @@ public:
                     &actualMode,
                     &supported);
 
+                if (FAILED(hr) || !supported) {
+                    hr = output_->DoesSupportVideoMode(
+                        bmdVideoConnectionSDI,
+                        m,
+                        fmt,
+                        bmdNoVideoOutputConversion,
+                        bmdSupportedVideoModeDefault,
+                        &actualMode,
+                        &supported);
+                }
+
                 if (SUCCEEDED(hr) && supported) {
                     pixelFormat_ = fmt;
                     displayMode_ = actualMode;
-                    formatSupported = true;
-                    break;
+                    ConfigureFrameTiming();
+
+                    hr = output_->EnableVideoOutput(displayMode_, bmdVideoOutputFlagDefault);
+                    if (SUCCEEDED(hr)) {
+                        enableSuccess = true;
+                        break;
+                    }
+                    lastEnableHr = hr;
                 }
             }
-            if (formatSupported) break;
+            if (enableSuccess) break;
         }
 
-        if (!formatSupported) {
-            SetError(error, deviceName_ + L" does not support requested video mode/pixel format.");
-            output_.Reset();
-            return false;
-        }
-
-        ConfigureFrameTiming();
-
-        hr = output_->EnableVideoOutput(displayMode_, bmdVideoOutputFlagDefault);
-        if (FAILED(hr)) {
-            SetError(error, L"Unable to enable DeckLink video output on " + deviceName_ + L" (" + HResultText(hr) + L").");
+        if (!enableSuccess) {
+            std::wstring errText = deviceName_ + L" does not support requested video mode/pixel format";
+            if (FAILED(lastEnableHr)) {
+                errText += L" (" + HResultText(lastEnableHr) + L")";
+            }
+            errText += L".";
+            SetError(error, errText);
             output_.Reset();
             return false;
         }

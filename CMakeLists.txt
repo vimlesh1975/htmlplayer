@@ -50,7 +50,7 @@ add_executable(CeftoDecklinkOutputSmoke
     src/core/RendererInterfaces.h
 )
 
-add_executable(CeftoDecklinkServiceApp WIN32
+add_executable(CeftoDecklinkService WIN32
     src/service/DeckLinkServiceMain.cpp
     src/app/BackendFactory.cpp
     src/app/BackendFactory.h
@@ -79,7 +79,7 @@ add_executable(CeftoDecklinkServiceUninstaller
 target_compile_features(CeftoDecklink PRIVATE cxx_std_17)
 target_compile_features(CeftoDecklinkCheck PRIVATE cxx_std_17)
 target_compile_features(CeftoDecklinkOutputSmoke PRIVATE cxx_std_17)
-target_compile_features(CeftoDecklinkServiceApp PRIVATE cxx_std_17)
+target_compile_features(CeftoDecklinkService PRIVATE cxx_std_17)
 target_compile_features(CeftoDecklinkServiceInstaller PRIVATE cxx_std_17)
 target_compile_features(CeftoDecklinkServiceUninstaller PRIVATE cxx_std_17)
 
@@ -92,7 +92,7 @@ target_include_directories(CeftoDecklinkCheck PRIVATE
 target_include_directories(CeftoDecklinkOutputSmoke PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
-target_include_directories(CeftoDecklinkServiceApp PRIVATE
+target_include_directories(CeftoDecklinkService PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
@@ -117,7 +117,7 @@ target_compile_definitions(CeftoDecklinkOutputSmoke PRIVATE
     WIN32_LEAN_AND_MEAN
     CEFTOD_WITH_DECKLINK=$<BOOL:${CEFTOD_WITH_DECKLINK}>
 )
-target_compile_definitions(CeftoDecklinkServiceApp PRIVATE
+target_compile_definitions(CeftoDecklinkService PRIVATE
     UNICODE
     _UNICODE
     NOMINMAX
@@ -143,8 +143,8 @@ if(MSVC)
     set_property(TARGET CeftoDecklink PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
     target_compile_options(CeftoDecklinkCheck PRIVATE /W4 /permissive- /EHsc)
     target_compile_options(CeftoDecklinkOutputSmoke PRIVATE /W4 /permissive- /EHsc)
-    target_compile_options(CeftoDecklinkServiceApp PRIVATE /W4 /permissive- /EHsc /FS)
-    set_property(TARGET CeftoDecklinkServiceApp PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+    target_compile_options(CeftoDecklinkService PRIVATE /W4 /permissive- /EHsc /FS)
+    set_property(TARGET CeftoDecklinkService PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
     target_compile_options(CeftoDecklinkServiceInstaller PRIVATE /W4 /permissive- /EHsc)
     set_property(TARGET CeftoDecklinkServiceInstaller PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
     target_compile_options(CeftoDecklinkServiceUninstaller PRIVATE /W4 /permissive- /EHsc)
@@ -153,7 +153,7 @@ else()
     target_compile_options(CeftoDecklink PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(CeftoDecklinkCheck PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(CeftoDecklinkOutputSmoke PRIVATE -Wall -Wextra -Wpedantic)
-    target_compile_options(CeftoDecklinkServiceApp PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(CeftoDecklinkService PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(CeftoDecklinkServiceInstaller PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(CeftoDecklinkServiceUninstaller PRIVATE -Wall -Wextra -Wpedantic)
 endif()
@@ -174,7 +174,7 @@ target_link_libraries(CeftoDecklinkOutputSmoke PRIVATE
     ole32
     oleaut32
 )
-target_link_libraries(CeftoDecklinkServiceApp PRIVATE
+target_link_libraries(CeftoDecklinkService PRIVATE
     advapi32
     ole32
     oleaut32
@@ -198,7 +198,7 @@ if(NOT CEFTOD_WITH_CEF)
         src/mock/MockHtmlRenderer.cpp
         src/mock/MockHtmlRenderer.h
     )
-    target_sources(CeftoDecklinkServiceApp PRIVATE
+    target_sources(CeftoDecklinkService PRIVATE
         src/mock/MockHtmlRenderer.cpp
         src/mock/MockHtmlRenderer.h
     )
@@ -222,7 +222,7 @@ if(CEFTOD_WITH_CEF)
     ADD_LOGICAL_TARGET(libcef_lib "${CEF_LIB_RELEASE}" "${CEF_LIB_RELEASE}")
     add_subdirectory("${CEF_LIBCEF_DLL_WRAPPER_PATH}" "${CMAKE_BINARY_DIR}/libcef_dll_wrapper")
 
-    foreach(CEFTOD_CEF_TARGET CeftoDecklink CeftoDecklinkServiceApp)
+    foreach(CEFTOD_CEF_TARGET CeftoDecklink CeftoDecklinkService)
         target_compile_features(${CEFTOD_CEF_TARGET} PRIVATE cxx_std_20)
         target_include_directories(${CEFTOD_CEF_TARGET} SYSTEM PRIVATE "${CEF_INCLUDE_PATH}")
         target_compile_definitions(${CEFTOD_CEF_TARGET} PRIVATE __STDC_CONSTANT_MACROS __STDC_FORMAT_MACROS)
