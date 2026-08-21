@@ -7,6 +7,7 @@
 #include <condition_variable>
 #include <cstdint>
 #include <cstring>
+#include <filesystem>
 #include <limits>
 #include <mutex>
 #include <thread>
@@ -120,6 +121,15 @@ bool AcquireCef(std::wstring* error) {
     settings.multi_threaded_message_loop = true;
     settings.background_color = CefColorSetARGB(0, 0, 0, 0);
     settings.log_severity = LOGSEVERITY_WARNING;
+    wchar_t exePathBuffer[MAX_PATH] = {};
+    GetModuleFileNameW(nullptr, exePathBuffer, MAX_PATH);
+    const auto exeDir = std::filesystem::path(exePathBuffer).parent_path();
+    const auto localesDir = exeDir / L"locales";
+
+    CefString(&settings.resources_dir_path).FromWString(exeDir.wstring());
+    CefString(&settings.locales_dir_path).FromWString(localesDir.wstring());
+    CefString(&settings.browser_subprocess_path).FromWString(exePathBuffer);
+
     const auto cacheRoot = JoinPath(CeftoLocalDataPath(), L"CefRoot");
     const auto cachePath = JoinPath(cacheRoot, L"Cache");
     const auto logPath = JoinPath(cacheRoot, L"cef.log");

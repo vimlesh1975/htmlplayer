@@ -164,4 +164,8 @@ if ($LASTEXITCODE -ne 0) {
     throw "CMake build failed with exit code $LASTEXITCODE."
 }
 
-Write-Host "Built build\$Configuration\CeftoDecklink.exe"
+if (Test-Path "build\$Configuration\CeftoDecklinkServiceInstaller.exe") {
+    Copy-Item -Path "build\$Configuration\CeftoDecklinkServiceInstaller.exe" -Destination "build\$Configuration\CeftoDecklinkServiceUninstaller.exe" -Force
+}
+
+Write-Host "Built build\$Configuration\CeftoDecklink.exe and CeftoDecklinkServiceUninstaller.exe"

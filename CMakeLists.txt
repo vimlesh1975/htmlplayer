@@ -72,11 +72,16 @@ add_executable(CeftoDecklinkServiceInstaller
     serviceinstaller/ServiceInstaller.cpp
 )
 
+add_executable(CeftoDecklinkServiceUninstaller
+    serviceinstaller/ServiceInstaller.cpp
+)
+
 target_compile_features(CeftoDecklink PRIVATE cxx_std_17)
 target_compile_features(CeftoDecklinkCheck PRIVATE cxx_std_17)
 target_compile_features(CeftoDecklinkOutputSmoke PRIVATE cxx_std_17)
 target_compile_features(CeftoDecklinkService PRIVATE cxx_std_17)
 target_compile_features(CeftoDecklinkServiceInstaller PRIVATE cxx_std_17)
+target_compile_features(CeftoDecklinkServiceUninstaller PRIVATE cxx_std_17)
 
 target_include_directories(CeftoDecklink PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -126,6 +131,12 @@ target_compile_definitions(CeftoDecklinkServiceInstaller PRIVATE
     NOMINMAX
     WIN32_LEAN_AND_MEAN
 )
+target_compile_definitions(CeftoDecklinkServiceUninstaller PRIVATE
+    UNICODE
+    _UNICODE
+    NOMINMAX
+    WIN32_LEAN_AND_MEAN
+)
 
 if(MSVC)
     target_compile_options(CeftoDecklink PRIVATE /W4 /permissive- /EHsc /FS)
@@ -136,12 +147,15 @@ if(MSVC)
     set_property(TARGET CeftoDecklinkService PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
     target_compile_options(CeftoDecklinkServiceInstaller PRIVATE /W4 /permissive- /EHsc)
     set_property(TARGET CeftoDecklinkServiceInstaller PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+    target_compile_options(CeftoDecklinkServiceUninstaller PRIVATE /W4 /permissive- /EHsc)
+    set_property(TARGET CeftoDecklinkServiceUninstaller PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 else()
     target_compile_options(CeftoDecklink PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(CeftoDecklinkCheck PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(CeftoDecklinkOutputSmoke PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(CeftoDecklinkService PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(CeftoDecklinkServiceInstaller PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(CeftoDecklinkServiceUninstaller PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 
 target_link_libraries(CeftoDecklink PRIVATE
@@ -171,6 +185,10 @@ target_link_libraries(CeftoDecklinkService PRIVATE
     crypt32
 )
 target_link_libraries(CeftoDecklinkServiceInstaller PRIVATE
+    advapi32
+    shell32
+)
+target_link_libraries(CeftoDecklinkServiceUninstaller PRIVATE
     advapi32
     shell32
 )

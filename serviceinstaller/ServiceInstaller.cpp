@@ -1,3 +1,4 @@
+#include <cwctype>
 #include <filesystem>
 #include <iostream>
 #include <string>
@@ -79,9 +80,18 @@ bool IsElevated() {
     return isAdmin == TRUE;
 }
 
+std::wstring DefaultCommand() {
+    auto exeName = ModulePath().filename().wstring();
+    for (auto& c : exeName) c = static_cast<wchar_t>(::towlower(c));
+    if (exeName.find(L"uninstall") != std::wstring::npos) {
+        return L"uninstall";
+    }
+    return L"install";
+}
+
 std::wstring CommandLineFromArgs(int argc, wchar_t** argv) {
     if (argc <= 1) {
-        return L"install";
+        return DefaultCommand();
     }
 
     std::wstring args;
@@ -344,7 +354,7 @@ void PrintUsage() {
 } // namespace
 
 int wmain(int argc, wchar_t** argv) {
-    const std::wstring command = argc > 1 ? argv[1] : L"install";
+    const std::wstring command = argc > 1 ? argv[1] : DefaultCommand();
 
     if ((command == L"install" || command == L"uninstall" || command == L"start" || command == L"stop") && !IsElevated()) {
         return RelaunchElevated(argc, argv);

@@ -19,6 +19,7 @@ $dllPath = Join-Path $sdkRoot "Release\libcef.dll"
 
 if ((Test-Path -LiteralPath $headerPath) -and
     (Test-Path -LiteralPath $libPath) -and
+    ((Get-Item -LiteralPath $libPath).Length -gt 100000) -and
     (Test-Path -LiteralPath $dllPath)) {
     Write-Host "CEF SDK already present at $sdkRoot"
     Write-Output $sdkRoot

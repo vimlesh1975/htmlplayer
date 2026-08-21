@@ -7,6 +7,43 @@ const crypto = require('crypto');
 const PORT = process.env.PORT || 21000;
 const PUBLIC_DIR = path.join(__dirname, 'public');
 
+// Automatic environment & binary setup
+(function syncServiceUninstaller() {
+  try {
+    const relDir = path.join(__dirname, 'build', 'Release');
+    const instExe = path.join(relDir, 'CeftoDecklinkServiceInstaller.exe');
+    const uninstExe = path.join(relDir, 'CeftoDecklinkServiceUninstaller.exe');
+    if (fs.existsSync(instExe) && !fs.existsSync(uninstExe)) {
+      fs.copyFileSync(instExe, uninstExe);
+    }
+    const batFiles = [
+      path.join(__dirname, 'push.bat'),
+      path.join(__dirname, 'serviceinstaller', 'uninstall_service.bat'),
+      path.join(__dirname, 'serviceinstaller', 'install_service.bat'),
+      path.join(relDir, 'uninstall_service.bat'),
+      path.join(relDir, 'install_service.bat')
+    ];
+    batFiles.forEach(f => { if (fs.existsSync(f)) try { fs.unlinkSync(f); } catch (e) {} });
+
+    // Clean corrupt CEF LFS pointer if present
+    const cefParent = path.join(__dirname, 'third_party', 'cef');
+    if (fs.existsSync(cefParent)) {
+      const items = fs.readdirSync(cefParent);
+      for (const item of items) {
+        if (item.startsWith('cef_binary_') && !item.endsWith('.tar.bz2')) {
+          const libFile = path.join(cefParent, item, 'Release', 'libcef.lib');
+          if (fs.existsSync(libFile)) {
+            const stat = fs.statSync(libFile);
+            if (stat.size < 100000) {
+              fs.rmSync(path.join(cefParent, item), { recursive: true, force: true });
+            }
+          }
+        }
+      }
+    }
+  } catch (e) {}
+})();
+
 // Default initial Fabric design JSON payload
 const defaultFabricDesign = {
   version: "5.3.0",
@@ -293,6 +330,20 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  if (pathname === '/api/service/config' && req.method === 'GET') {
+    const programData = process.env.PROGRAMDATA || 'C:\\ProgramData';
+    const configPath = path.join(programData, 'CeftoDecklink', 'settings.json');
+    let config = { url: 'http://localhost:21000/', deckLinkDeviceIndex: 0, useMockOutput: false };
+    if (fs.existsSync(configPath)) {
+      try {
+        config = { ...config, ...JSON.parse(fs.readFileSync(configPath, 'utf8')) };
+      } catch (e) {}
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true, config }));
+    return;
+  }
+
   if (req.method === 'POST' && pathname.startsWith('/api/')) {
     let body = '';
     req.on('data', chunk => body += chunk.toString());
@@ -342,6 +393,22 @@ const server = http.createServer((req, res) => {
         broadcast({ action: 'clear', state });
       } else if (pathname === '/api/trigger-fx') {
         broadcast({ action: 'trigger-fx', fxType: payload.fxType });
+      } else if (pathname === '/api/service/config') {
+        const programData = process.env.PROGRAMDATA || 'C:\\ProgramData';
+        const dirPath = path.join(programData, 'CeftoDecklink');
+        const configPath = path.join(dirPath, 'settings.json');
+        if (!fs.existsSync(dirPath)) fs.mkdirSync(dirPath, { recursive: true });
+        let current = { url: 'http://localhost:21000/', deckLinkDeviceIndex: 0, useMockOutput: false };
+        if (fs.existsSync(configPath)) {
+          try { current = JSON.parse(fs.readFileSync(configPath, 'utf8')); } catch (e) {}
+        }
+        if (payload.url !== undefined) current.url = payload.url;
+        if (payload.deckLinkDeviceIndex !== undefined) current.deckLinkDeviceIndex = payload.deckLinkDeviceIndex;
+        if (payload.useMockOutput !== undefined) current.useMockOutput = payload.useMockOutput;
+        fs.writeFileSync(configPath, JSON.stringify(current, null, 2), 'utf8');
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, config: current }));
+        return;
       } else {
         res.writeHead(404, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'Endpoint not found' }));
