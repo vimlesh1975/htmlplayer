@@ -110,13 +110,106 @@ _BMDDisplayMode DisplayModeFor(const VideoMode& mode) {
     return bmdModeHD1080p50;
 }
 
-void CopyFramePixels(
+void ConvertBgraToUyvy(
     const FrameBuffer& source,
     void* destination,
     int destinationWidth,
     int destinationHeight,
     int destinationStride,
     bool mirrorOutput) {
+    auto* out = static_cast<std::uint8_t*>(destination);
+    if (!out || source.bgra.empty() || source.width <= 0 || source.height <= 0 || source.strideBytes <= 0) {
+        return;
+    }
+
+    for (int y = 0; y < destinationHeight; ++y) {
+        const int sourceY = (source.height == destinationHeight) ? y : std::min(source.height - 1, (y * source.height) / destinationHeight);
+        const auto* sourceRow = source.bgra.data() + (static_cast<std::size_t>(sourceY) * source.strideBytes);
+        auto* destinationRow = out + (static_cast<std::size_t>(y) * destinationStride);
+
+        for (int x = 0; x < destinationWidth; x += 2) {
+            int srcX0 = (source.width == destinationWidth) ? x : std::min(source.width - 1, (x * source.width) / destinationWidth);
+            int srcX1 = (source.width == destinationWidth) ? x + 1 : std::min(source.width - 1, ((x + 1) * source.width) / destinationWidth);
+
+            if (mirrorOutput) {
+                srcX0 = source.width - 1 - srcX0;
+                srcX1 = source.width - 1 - srcX1;
+            }
+
+            const auto* p0 = sourceRow + (srcX0 * 4);
+            const auto* p1 = sourceRow + (srcX1 * 4);
+
+            int b0 = p0[0], g0 = p0[1], r0 = p0[2];
+            int b1 = p1[0], g1 = p1[1], r1 = p1[2];
+
+            int y0 = ((66 * r0 + 129 * g0 + 25 * b0 + 128) >> 8) + 16;
+            int u0 = ((-38 * r0 - 74 * g0 + 112 * b0 + 128) >> 8) + 128;
+            int v0 = ((112 * r0 - 94 * g0 - 18 * b0 + 128) >> 8) + 128;
+
+            int y1 = ((66 * r1 + 129 * g1 + 25 * b1 + 128) >> 8) + 16;
+            int u1 = ((-38 * r1 - 74 * g1 + 112 * b1 + 128) >> 8) + 128;
+            int v1 = ((112 * r1 - 94 * g1 - 18 * b1 + 128) >> 8) + 128;
+
+            int uAvg = (u0 + u1) >> 1;
+            int vAvg = (v0 + v1) >> 1;
+
+            destinationRow[x * 2 + 0] = static_cast<std::uint8_t>(std::clamp(uAvg, 0, 255));
+            destinationRow[x * 2 + 1] = static_cast<std::uint8_t>(std::clamp(y0, 0, 255));
+            destinationRow[x * 2 + 2] = static_cast<std::uint8_t>(std::clamp(vAvg, 0, 255));
+            destinationRow[x * 2 + 3] = static_cast<std::uint8_t>(std::clamp(y1, 0, 255));
+        }
+    }
+}
+
+void ConvertBgraToArgb(
+    const FrameBuffer& source,
+    void* destination,
+    int destinationWidth,
+    int destinationHeight,
+    int destinationStride,
+    bool mirrorOutput) {
+    auto* out = static_cast<std::uint8_t*>(destination);
+    if (!out || source.bgra.empty() || source.width <= 0 || source.height <= 0 || source.strideBytes <= 0) {
+        return;
+    }
+
+    for (int y = 0; y < destinationHeight; ++y) {
+        const int sourceY = (source.height == destinationHeight) ? y : std::min(source.height - 1, (y * source.height) / destinationHeight);
+        const auto* sourceRow = source.bgra.data() + (static_cast<std::size_t>(sourceY) * source.strideBytes);
+        auto* destinationRow = out + (static_cast<std::size_t>(y) * destinationStride);
+
+        for (int x = 0; x < destinationWidth; ++x) {
+            const int scaledX = std::min(source.width - 1, (x * source.width) / destinationWidth);
+            const int sourceX = mirrorOutput ? source.width - 1 - scaledX : scaledX;
+            const auto* src = sourceRow + (sourceX * 4);
+            auto* dst = destinationRow + (x * 4);
+
+            // Convert BGRA [B, G, R, A] -> ARGB [A, R, G, B] for DeckLink Keyer
+            dst[0] = src[3]; // Alpha (Key)
+            dst[1] = src[2]; // Red (Fill)
+            dst[2] = src[1]; // Green (Fill)
+            dst[3] = src[0]; // Blue (Fill)
+        }
+    }
+}
+
+void CopyFramePixels(
+    const FrameBuffer& source,
+    void* destination,
+    int destinationWidth,
+    int destinationHeight,
+    int destinationStride,
+    _BMDPixelFormat pixelFormat,
+    bool mirrorOutput) {
+    if (pixelFormat == bmdFormat8BitARGB) {
+        ConvertBgraToArgb(source, destination, destinationWidth, destinationHeight, destinationStride, mirrorOutput);
+        return;
+    }
+    if (pixelFormat == bmdFormat8BitYUV) {
+        ConvertBgraToUyvy(source, destination, destinationWidth, destinationHeight, destinationStride, mirrorOutput);
+        return;
+    }
+
     auto* out = static_cast<std::uint8_t*>(destination);
     if (!out || source.bgra.empty() || source.width <= 0 || source.height <= 0 || source.strideBytes <= 0) {
         return;
@@ -212,25 +305,51 @@ public:
             return false;
         }
 
-        displayMode_ = DisplayModeFor(mode);
-        _BMDDisplayMode actualMode = displayMode_;
-        long supported = FALSE;
-        hr = output_->DoesSupportVideoMode(
-            bmdVideoConnectionUnspecified,
-            displayMode_,
-            bmdFormat8BitBGRA,
-            bmdNoVideoOutputConversion,
-            bmdSupportedVideoModeDefault,
-            &actualMode,
-            &supported);
+        const _BMDDisplayMode requestedMode = DisplayModeFor(mode);
+        _BMDDisplayMode candidateModes[] = {
+            requestedMode,
+            bmdModeHD1080i50,
+            bmdModeHD1080p25,
+            bmdModeHD720p50
+        };
 
-        if (FAILED(hr) || !supported) {
-            SetError(error, deviceName_ + L" does not support the selected BGRA output mode (" + HResultText(hr) + L").");
+        // Prefer pixel formats with Alpha channel (BGRA / ARGB) for Hardware Key & Fill playout
+        _BMDPixelFormat candidateFormats[] = {
+            bmdFormat8BitBGRA,
+            bmdFormat8BitARGB,
+            bmdFormat8BitYUV
+        };
+
+        bool formatSupported = false;
+        for (auto fmt : candidateFormats) {
+            for (auto m : candidateModes) {
+                long supported = FALSE;
+                _BMDDisplayMode actualMode = m;
+                hr = output_->DoesSupportVideoMode(
+                    bmdVideoConnectionUnspecified,
+                    m,
+                    fmt,
+                    bmdNoVideoOutputConversion,
+                    bmdSupportedVideoModeDefault,
+                    &actualMode,
+                    &supported);
+
+                if (SUCCEEDED(hr) && supported) {
+                    pixelFormat_ = fmt;
+                    displayMode_ = actualMode;
+                    formatSupported = true;
+                    break;
+                }
+            }
+            if (formatSupported) break;
+        }
+
+        if (!formatSupported) {
+            SetError(error, deviceName_ + L" does not support requested video mode/pixel format.");
             output_.Reset();
             return false;
         }
 
-        displayMode_ = actualMode;
         ConfigureFrameTiming();
 
         hr = output_->EnableVideoOutput(displayMode_, bmdVideoOutputFlagDefault);
@@ -302,12 +421,14 @@ public:
             return false;
         }
 
+        int rowBytes = (pixelFormat_ == bmdFormat8BitYUV) ? (mode_.width * 2) : (mode_.width * 4);
+
         Microsoft::WRL::ComPtr<IDeckLinkMutableVideoFrame_v14_2_1> deckLinkFrame;
         HRESULT hr = output_->CreateVideoFrame(
             mode_.width,
             mode_.height,
-            mode_.width * 4,
-            bmdFormat8BitBGRA,
+            rowBytes,
+            pixelFormat_,
             bmdFrameFlagDefault,
             deckLinkFrame.GetAddressOf());
 
@@ -325,7 +446,7 @@ public:
             return false;
         }
 
-        CopyFramePixels(*frame, bytes, mode_.width, mode_.height, mode_.width * 4, mirrorOutput_);
+        CopyFramePixels(*frame, bytes, mode_.width, mode_.height, rowBytes, pixelFormat_, mirrorOutput_);
 
         SyncNextStreamTimeToPlayback();
         hr = output_->ScheduleVideoFrame(deckLinkFrame.Get(), nextStreamTime_, frameDuration_, timeScale_);
@@ -372,13 +493,14 @@ private:
     }
 
     bool ScheduleBlackFrames(int count, std::wstring* error) {
+        int rowBytes = (pixelFormat_ == bmdFormat8BitYUV) ? (mode_.width * 2) : (mode_.width * 4);
         for (int i = 0; i < count; ++i) {
             Microsoft::WRL::ComPtr<IDeckLinkMutableVideoFrame_v14_2_1> frame;
             HRESULT hr = output_->CreateVideoFrame(
                 mode_.width,
                 mode_.height,
-                mode_.width * 4,
-                bmdFormat8BitBGRA,
+                rowBytes,
+                pixelFormat_,
                 bmdFrameFlagDefault,
                 frame.GetAddressOf());
 
@@ -394,7 +516,20 @@ private:
                 return false;
             }
 
-            std::memset(bytes, 0, static_cast<std::size_t>(mode_.width * mode_.height * 4));
+            if (pixelFormat_ == bmdFormat8BitYUV) {
+                // Black in UYVY (Y=16, U=128, V=128): U=128, Y0=16, V=128, Y1=16
+                auto* p = static_cast<std::uint8_t*>(bytes);
+                const int totalBytes = mode_.width * mode_.height * 2;
+                for (int b = 0; b < totalBytes; b += 4) {
+                    p[b + 0] = 128; // U
+                    p[b + 1] = 16;  // Y0
+                    p[b + 2] = 128; // V
+                    p[b + 3] = 16;  // Y1
+                }
+            } else {
+                std::memset(bytes, 0, static_cast<std::size_t>(mode_.width * mode_.height * 4));
+            }
+
             hr = output_->ScheduleVideoFrame(frame.Get(), nextStreamTime_, frameDuration_, timeScale_);
             if (FAILED(hr)) {
                 SetError(error, L"Unable to schedule DeckLink preroll frame (" + HResultText(hr) + L").");
@@ -447,43 +582,52 @@ private:
     Microsoft::WRL::ComPtr<IDeckLinkOutput_v14_2_1> output_;
     OutputStats stats_;
     VideoMode mode_;
-    std::wstring deviceName_;
     _BMDDisplayMode displayMode_ = bmdModeHD1080p50;
+    _BMDPixelFormat pixelFormat_ = bmdFormat8BitYUV;
+    std::wstring deviceName_;
     __int64 frameDuration_ = 1;
     __int64 timeScale_ = 50;
     __int64 nextStreamTime_ = 0;
-    std::chrono::steady_clock::time_point lastFpsAt_{};
+    std::chrono::steady_clock::time_point lastFpsAt_;
     std::uint64_t lastFpsFrameCount_ = 0;
     bool mirrorOutput_ = false;
 };
 
 #else
 
-class DeckLinkPlaceholderOutput final : public IVideoOutput {
+class MockDeckLinkOutputImpl final : public IVideoOutput {
 public:
-    bool Start(const VideoMode&, bool, int, std::wstring* error) override {
-        if (error) {
-            *error = L"DeckLink output support is not enabled in this build.";
-        }
-        return false;
+    bool Start(const VideoMode& mode, bool, int, std::wstring*) override {
+        mode_ = mode;
+        stats_.running = true;
+        stats_.status = L"Mock output active";
+        return true;
     }
 
     void Stop() override {
+        stats_.running = false;
+        stats_.status = L"Ready";
     }
 
     bool SubmitFrame(std::shared_ptr<const FrameBuffer>) override {
-        return false;
+        if (!stats_.running) {
+            return false;
+        }
+        ++stats_.framesSubmitted;
+        return true;
     }
 
     OutputStats GetStats() const override {
-        OutputStats stats;
-        stats.status = L"DeckLink disabled";
-        return stats;
+        return stats_;
     }
 
     std::wstring Name() const override {
-        return L"DeckLink output disabled";
+        return L"Mock DeckLink output";
     }
+
+private:
+    VideoMode mode_;
+    OutputStats stats_;
 };
 
 #endif
@@ -494,7 +638,7 @@ std::unique_ptr<IVideoOutput> CreateDeckLinkOutput() {
 #if CEFTOD_WITH_DECKLINK && defined(_MSC_VER)
     return std::make_unique<RealDeckLinkOutput>();
 #else
-    return std::make_unique<DeckLinkPlaceholderOutput>();
+    return std::make_unique<MockDeckLinkOutputImpl>();
 #endif
 }
 
