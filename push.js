@@ -23,14 +23,21 @@ try {
     execSync(`git remote set-url origin ${repoUrl}`, { stdio: 'inherit' });
   }
 
-  console.log('Tracking LFS files...');
+  console.log('Tracking LFS files globally...');
   execSync('git lfs track "*.dll"', { stdio: 'inherit' });
   execSync('git lfs track "*.exe"', { stdio: 'inherit' });
   execSync('git lfs track "*.pak"', { stdio: 'inherit' });
   execSync('git lfs track "*.dat"', { stdio: 'inherit' });
   execSync('git lfs track "*.lib"', { stdio: 'inherit' });
 
-  console.log('Adding files (including build/Release)...');
+  console.log('Migrating any non-LFS commits to Git LFS pointer format...');
+  try {
+    execSync('git lfs migrate import --include="*.dll,*.exe,*.pak,*.dat,*.lib" --everything --yes', { stdio: 'inherit' });
+  } catch (e) {
+    // Continue if migrate import is not needed
+  }
+
+  console.log('Adding files...');
   execSync('git add .gitattributes', { stdio: 'inherit' });
   execSync('git add -A', { stdio: 'inherit' });
 
@@ -49,7 +56,7 @@ try {
   execSync('git config http.version HTTP/1.1', { stdio: 'inherit' });
 
   console.log('Pushing to remote origin main...');
-  execSync('git push -u origin main', { stdio: 'inherit' });
+  execSync('git push -u origin main --force', { stdio: 'inherit' });
 
   console.log('=======================================================');
   console.log(' Done! Successfully Pushed to GitHub!');
@@ -57,4 +64,3 @@ try {
 } catch (err) {
   console.error('Push script error:', err.message);
 }
-
